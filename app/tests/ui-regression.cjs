@@ -7,7 +7,7 @@ const fs = require('node:fs/promises')
 const path = require('node:path')
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright')
 
-const voices = ['Рик Санчез', 'Соник'].map((name, i) => ({
+const voices = ['Тестовый голос 1', 'Тестовый голос 2'].map((name, i) => ({
   id: `voice-${i}`, name, nameRu: name, wikipedia: `Fixture_${i}`, franchise: 'Test',
   category: 'cartoon', accent: '#a78bfa', suggestedPitch: i, status: 'ready',
   description: 'Тестовый голос для проверки интерфейса', language: 'ru-RU', custom: false, compatible: true, diskSize: 1000, downloadSize: 1000,
@@ -117,7 +117,7 @@ async function main() {
     })
     await page.goto(`http://127.0.0.1:${port}`)
     const sidebar = page.locator('aside').first()
-    const rows = sidebar.getByRole('button', { name: 'Соник', exact: true })
+    const rows = sidebar.getByRole('button', { name: 'Тестовый голос 2', exact: true })
     await rows.last().waitFor()
     await rows.last().locator('img').waitFor()
     await rows.last().evaluate(el => {
@@ -136,7 +136,7 @@ async function main() {
     assert.equal(calls.filter(c => c.pathname === '/engine/voice').length, 1)
     console.log('PASS: recent avatar/button stay mounted during 40 status updates; held click selects once')
     // The same component is used for Favorites.
-    await sidebar.getByRole('button', { name: 'Рик Санчез', exact: true }).click()
+    await sidebar.getByRole('button', { name: 'Тестовый голос 1', exact: true }).click()
     await page.waitForFunction(() => window.__fixture.engine.voiceId === 'voice-0')
     await rows.first().focus()
     await page.keyboard.press('Enter')

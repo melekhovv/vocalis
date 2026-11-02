@@ -11,8 +11,10 @@ function Get-Uv {
     New-Item -ItemType Directory -Force $toolCache | Out-Null
     $archive = Join-Path $toolCache 'uv-x86_64-pc-windows-msvc.zip'
     $baseUrl = 'https://github.com/astral-sh/uv/releases/download/0.13.6/uv-x86_64-pc-windows-msvc.zip'
-    Invoke-WebRequest -Uri $baseUrl -OutFile $archive
-    $checksum = ((Invoke-WebRequest -Uri ($baseUrl + '.sha256')).Content.Trim() -split '\s+')[0]
+    Invoke-WebRequest -UseBasicParsing -Uri $baseUrl -OutFile $archive
+    $checksumFile = $archive + '.sha256'
+    Invoke-WebRequest -UseBasicParsing -Uri ($baseUrl + '.sha256') -OutFile $checksumFile
+    $checksum = ((Get-Content -LiteralPath $checksumFile -Raw).Trim() -split '\s+')[0]
     if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $checksum.ToUpperInvariant()) { throw 'uv checksum mismatch' }
     Expand-Archive -LiteralPath $archive -DestinationPath $toolCache -Force
     New-Item -ItemType Directory -Force (Split-Path -Parent $local) | Out-Null
