@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "baseAssets": [
+    {
+      "id": "contentvec",
+      "title": "ContentVec (HuBERT) embedder",
+      "path": "rvc/models/embedders/contentvec/pytorch_model.bin",
+      "url": "https://huggingface.co/IAHispano/Applio/resolve/3ff370b7023086f57e200ef86a9a251ddf4da472/Resources/embedders/contentvec/pytorch_model.bin",
+      "sha256": "d8dd400e054ddf4e6be75dab5a2549db748cc99e756a097c496c099f65a4854e",
+      "size": 378342945,
+      "license": "MIT",
+      "licenseUrl": "https://huggingface.co/IAHispano/Applio/blob/3ff370b7023086f57e200ef86a9a251ddf4da472/README.md"
+    },
+    {
+      "id": "contentvec-config",
+      "title": "ContentVec config",
+      "path": "rvc/models/embedders/contentvec/config.json",
+      "url": "https://huggingface.co/IAHispano/Applio/resolve/3ff370b7023086f57e200ef86a9a251ddf4da472/Resources/embedders/contentvec/config.json",
+      "sha256": "2ddde063b795d38d9051a7215a092fecf4cfe148b54251e38de51d88d356898b",
+      "size": 1388,
+      "license": "MIT",
+      "licenseUrl": "https://huggingface.co/IAHispano/Applio/blob/3ff370b7023086f57e200ef86a9a251ddf4da472/README.md"
+    },
+    {
+      "id": "rmvpe",
+      "title": "RMVPE pitch extractor",
+      "path": "rvc/models/predictors/rmvpe.pt",
+      "url": "https://huggingface.co/IAHispano/Applio/resolve/3ff370b7023086f57e200ef86a9a251ddf4da472/Resources/predictors/rmvpe.pt",
+      "sha256": "6d62215f4306e3ca278246188607209f09af3dc77ed4232efdd069798c4ec193",
+      "size": 181184272,
+      "license": "MIT",
+      "licenseUrl": "https://huggingface.co/IAHispano/Applio/blob/3ff370b7023086f57e200ef86a9a251ddf4da472/README.md"
+    },
+    {
+      "id": "fcpe",
+      "title": "FCPE pitch extractor",
+      "path": "rvc/models/predictors/fcpe.pt",
+      "url": "https://huggingface.co/IAHispano/Applio/resolve/3ff370b7023086f57e200ef86a9a251ddf4da472/Resources/predictors/fcpe.pt",
+      "sha256": "8544427eebbf2baef6213cc9a05057e46961617a8e5bd96975a0d42da6a09059",
+      "size": 43362881,
+      "license": "MIT",
+      "licenseUrl": "https://huggingface.co/IAHispano/Applio/blob/3ff370b7023086f57e200ef86a9a251ddf4da472/README.md"
+    }
+  ],
+  "voices": [],
+  "voicePolicy": {
+    "allowedLicenses": [
+      "CC0-1.0"
+    ],
+    "requireDatasetLicense": "CC0-1.0",
+    "requireRightsEvidence": true,
+    "note": "Factory voices require explicit CC0 rights for model and source recordings. No voices are approved in this release."
+  }
+}

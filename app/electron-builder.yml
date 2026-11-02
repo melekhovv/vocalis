@@ -1,0 +1,53 @@
+appId: app.vocalis
+productName: Vocalis
+copyright: Vocalis contributors
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**
+  - package.json
+asar: true
+extraResources:
+  # Engine sources + lockfile; the Python runtime itself (~4 GB with CUDA
+  # PyTorch) is installed on first launch by uv into %LOCALAPPDATA%\Vocalis.
+  - from: ../engine/vcengine
+    to: engine/vcengine
+    filter: ["**/*.py"]
+  - from: ../engine/vendor
+    to: engine/vendor
+    filter: ["**/*", "!**/__pycache__/**"]
+  - from: ../engine/pyproject.toml
+    to: engine/pyproject.toml
+  - from: ../engine/uv.lock
+    to: engine/uv.lock
+  - from: ../catalog/sources.json
+    to: engine/catalog/sources.json
+  - from: ../catalog/voices.json
+    to: engine/catalog/voices.json
+  - from: build/bin/uv.exe
+    to: bin/uv.exe
+  - from: build/icon.png
+    to: icon.png
+  - from: ../LICENSE
+    to: licenses/Vocalis-MIT.txt
+  - from: ../THIRD_PARTY_LICENSES.md
+    to: licenses/THIRD_PARTY_LICENSES.md
+  - from: build/THIRD_PARTY_NOTICES.txt
+    to: licenses/THIRD_PARTY_NOTICES.txt
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+  artifactName: Vocalis-Setup-${version}.exe
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Vocalis
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  license: build/license.txt
