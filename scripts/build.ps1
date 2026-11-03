@@ -11,8 +11,8 @@ Push-Location $App
 try {
     if (-not (Test-Path 'build\bin\uv.exe')) { Copy-Item (Get-Uv) build\bin\uv.exe -Force }
     npx tsc --noEmit -p tsconfig.json
-    if ($LASTEXITCODE -ne 0) { throw 'Ошибки TypeScript' }
+    if ($LASTEXITCODE -ne 0) { throw 'TypeScript compilation failed' }
     npm run dist
-    if ($LASTEXITCODE -ne 0) { throw 'Не удалось собрать установщик' }
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to build installer' }
     Get-ChildItem release\*.exe | Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,1)}}
 } finally { Pop-Location }
