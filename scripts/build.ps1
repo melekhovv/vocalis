@@ -9,7 +9,7 @@ $env:ELECTRON_CACHE = Join-Path $Root '.build-cache\electron'
 $env:ELECTRON_BUILDER_CACHE = Join-Path $Root '.build-cache\electron-builder'
 Push-Location $App
 try {
-    if (-not (Test-Path 'build\bin\uv.exe')) { Copy-Item (Get-Uv) build\bin\uv.exe -Force }
+    if (-not (Test-Path 'build\bin\uv.exe')) { Get-Uv | Out-Null }
     npx tsc --noEmit -p tsconfig.json
     if ($LASTEXITCODE -ne 0) { throw 'TypeScript compilation failed' }
     npm run dist
