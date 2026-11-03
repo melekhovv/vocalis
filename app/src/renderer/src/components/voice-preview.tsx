@@ -10,7 +10,7 @@ interface PreviewCtx {
 }
 const Ctx = createContext<PreviewCtx | null>(null)
 
-/** Card previews convert local Windows system speech, never a microphone recording. */
+/** Card previews always play the bundled Russian phrase, never a microphone recording. */
 export function PreviewProvider({ children }: { children: ReactNode }) {
   const [converting, setConverting] = useState<string | null>(null)
   const [playing, setPlaying] = useState<string | null>(null)

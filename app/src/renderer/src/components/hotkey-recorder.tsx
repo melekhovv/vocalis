@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { bridge } from '@/lib/bridge'
 import { cn } from '@/lib/utils'
@@ -25,8 +25,6 @@ export function formatAccel(a: string) {
 
 /** Records an Electron accelerator. Existing global shortcuts are suspended while recording. */
 export function HotkeyRecorder({ value, onChange }: { value: string; onChange: (accel: string) => void }) {
-  const onChangeRef = useRef(onChange)
-  onChangeRef.current = onChange
   const [recording, setRecording] = useState(false)
   useEffect(() => {
     if (!recording) return
@@ -39,7 +37,7 @@ export function HotkeyRecorder({ value, onChange }: { value: string; onChange: (
       const mods = [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Super'].filter(Boolean)
       const isF = /^F\d+$/.test(key)
       if (!mods.length && !isF) return // global shortcuts without modifiers would hijack typing
-      onChangeRef.current([...mods, key].join('+'))
+      onChange([...mods, key].join('+'))
       setRecording(false)
     }
     window.addEventListener('keydown', onKey, true)
@@ -47,7 +45,7 @@ export function HotkeyRecorder({ value, onChange }: { value: string; onChange: (
       window.removeEventListener('keydown', onKey, true)
       bridge.suspendHotkeys(false)
     }
-  }, [recording])
+  }, [recording, onChange])
   return (
     <div className="flex items-center gap-2">
       <button
@@ -82,8 +80,6 @@ export function vkName(vk: number) {
 
 /** Records a single key (Win32 virtual-key code) or a mouse side button for Push-to-Talk. */
 export function KeyRecorder({ value, onChange }: { value: number; onChange: (vk: number) => void }) {
-  const onChangeRef = useRef(onChange)
-  onChangeRef.current = onChange
   const [recording, setRecording] = useState(false)
   useEffect(() => {
     if (!recording) return
@@ -92,13 +88,13 @@ export function KeyRecorder({ value, onChange }: { value: number; onChange: (vk:
       if (e.code === 'Escape') return setRecording(false)
       // Chromium on Windows reports the native virtual-key code in keyCode.
       const sided: Record<string, number> = { ShiftLeft: 0xa0, ShiftRight: 0xa1, ControlLeft: 0xa2, ControlRight: 0xa3, AltLeft: 0xa4, AltRight: 0xa5 }
-      onChangeRef.current(sided[e.code] ?? e.keyCode)
+      onChange(sided[e.code] ?? e.keyCode)
       setRecording(false)
     }
     const onMouse = (e: MouseEvent) => {
       if (e.button === 3 || e.button === 4) {
         e.preventDefault()
-        onChangeRef.current(e.button === 3 ? 0x05 : 0x06)
+        onChange(e.button === 3 ? 0x05 : 0x06)
         setRecording(false)
       }
     }
@@ -108,7 +104,7 @@ export function KeyRecorder({ value, onChange }: { value: number; onChange: (vk:
       window.removeEventListener('keydown', onKey, true)
       window.removeEventListener('mousedown', onMouse, true)
     }
-  }, [recording])
+  }, [recording, onChange])
   return (
     <button
       onClick={() => setRecording(true)}

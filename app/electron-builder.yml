@@ -14,6 +14,9 @@ extraResources:
   - from: ../engine/vcengine
     to: engine/vcengine
     filter: ["**/*.py"]
+  - from: ../engine/assets
+    to: engine/assets
+    filter: ["**/*.wav"]
   - from: ../engine/vendor
     to: engine/vendor
     filter: ["**/*", "!**/__pycache__/**"]
@@ -21,9 +24,6 @@ extraResources:
     to: engine/pyproject.toml
   - from: ../engine/uv.lock
     to: engine/uv.lock
-  - from: ../engine/profiles/cpu
-    to: engine/profiles/cpu
-    filter: ["pyproject.toml", "uv.lock"]
   - from: ../catalog/sources.json
     to: engine/catalog/sources.json
   - from: ../catalog/voices.json
@@ -32,21 +32,12 @@ extraResources:
     to: bin/uv.exe
   - from: build/icon.png
     to: icon.png
-  - from: ../LICENSE
-    to: licenses/Vocalis-MIT.txt
-  - from: ../THIRD_PARTY_LICENSES.md
-    to: licenses/THIRD_PARTY_LICENSES.md
-  - from: build/THIRD_PARTY_NOTICES.txt
-    to: licenses/THIRD_PARTY_NOTICES.txt
 win:
   target:
     - target: nsis
       arch: [x64]
   icon: build/icon.ico
   artifactName: Vocalis-Setup-${version}.exe
-  signingHashAlgorithms:
-    - sha256
-  signAndEditExecutable: true
 nsis:
   oneClick: false
   perMachine: false

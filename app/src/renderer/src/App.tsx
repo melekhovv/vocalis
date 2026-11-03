@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
-import { AudioLines, Boxes, Cpu, Library, Settings, Star, History, Loader2, TriangleAlert, Download, Globe } from 'lucide-react'
+import { useState } from 'react'
+import { AudioLines, Boxes, Cpu, Library, Settings, Star, History, Loader2, TriangleAlert, Download } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
@@ -13,19 +12,16 @@ import { api } from '@/lib/api'
 import { cn, formatBytes } from '@/lib/utils'
 import { VoiceAvatar } from '@/components/voice-avatar'
 import { PreviewProvider } from '@/components/voice-preview'
-import { CableSetup } from '@/components/cable-setup'
 import { HomePage } from '@/pages/home'
 import { LibraryPage } from '@/pages/library'
-import { CatalogPage } from '@/pages/catalog'
 import { ModelsPage } from '@/pages/models'
 import { SettingsPage } from '@/pages/settings'
 import { SystemPage } from '@/pages/system'
 
-export type Page = 'home' | 'catalog' | 'library' | 'models' | 'settings' | 'system'
+export type Page = 'home' | 'library' | 'models' | 'settings' | 'system'
 
 const NAV: { id: Page; label: string; icon: typeof Library }[] = [
   { id: 'home', label: 'Главная', icon: AudioLines },
-  { id: 'catalog', label: 'Каталог голосов', icon: Globe },
   { id: 'library', label: 'Библиотека голосов', icon: Library },
   { id: 'models', label: 'Менеджер моделей', icon: Boxes },
   { id: 'settings', label: 'Настройки', icon: Settings },
@@ -47,20 +43,6 @@ function Shell() {
   const { info, connected, status } = useStore()
   const [page, setPage] = useState<Page>('home')
   const [settingsTab, setSettingsTab] = useState('devices')
-  const [pendingCableSetup, setPendingCableSetup] = useState(false)
-  const engineReady = !!info && info.state === 'ready' && connected && !!status
-  useEffect(() => bridge.onCableSetup((cable) => {
-    // Keep an explicitly started driver operation visible when Python finishes.
-    // Discovery alone never changes the user's page.
-    if (!engineReady && ['downloading', 'extracting', 'verifying', 'launching', 'awaiting-restart'].includes(cable.stage)) setPendingCableSetup(true)
-    else if (['installed', 'available', 'cancelled', 'error'].includes(cable.stage)) setPendingCableSetup(false)
-  }), [engineReady])
-  useEffect(() => {
-    if (!engineReady || !pendingCableSetup) return
-    setSettingsTab('virtual')
-    setPage('settings')
-    setPendingCableSetup(false)
-  }, [engineReady, pendingCableSetup])
   const go = (p: Page, tab?: string) => {
     if (tab) setSettingsTab(tab)
     setPage(p)
@@ -77,94 +59,41 @@ function Shell() {
         <BaseAssetsBanner />
         <div className="min-h-0 flex-1">
           {page === 'home' && <HomePage go={go} />}
-          {page === 'catalog' && <CatalogPage go={go} />}
           {page === 'library' && <LibraryPage go={go} />}
           {page === 'models' && <ModelsPage />}
           {page === 'settings' && <SettingsPage tab={settingsTab} onTab={setSettingsTab} />}
           {page === 'system' && <SystemPage />}
         </div>
       </main>
-      <RuntimeNotices go={go} />
       <NoticeDialog />
     </div>
     </PreviewProvider>
   )
 }
 
-function RuntimeNotices({ go }: { go: (p: Page, tab?: string) => void }) {
-  const { status } = useStore()
-  const running = status?.engine.state === 'running'
-  const output = status?.engine.devices.output
-  const overloaded = running && !status?.engine.params.bypass && (status?.engine.stats.realtimeFactor ?? 0) > 0.85
-  const overloadNotified = useRef(false)
-
-  useEffect(() => {
-    if (!running) {
-      overloadNotified.current = false
-      toast.dismiss('realtime-warning')
-      toast.dismiss('cable-warning')
-      return
-    }
-    let cancelled = false
-    api.devices().then((devices) => {
-      if (cancelled || devices.outputs.find((d) => d.id === output)?.isVirtualCable) return
-      const installed = devices.outputs.some((d) => d.isVirtualCable)
-      toast.warning('Для передачи голоса в Discord и игры нужен виртуальный кабель', {
-        id: 'cable-warning', duration: 10000,
-        description: installed ? 'Кабель найден, но вывод направлен в другое устройство. Для локального прослушивания кабель не нужен.' : 'Установите VB-CABLE и выберите CABLE Input как вывод Vocalis. Для локального прослушивания кабель не нужен.',
-        action: { label: 'Настроить', onClick: () => go('settings', 'virtual') },
-      })
-    }).catch(() => {})
-    return () => { cancelled = true }
-  }, [running, output])
-
-  useEffect(() => {
-    if (!overloaded || overloadNotified.current) return
-    // Ignore brief spikes during model startup; warn once per conversion session.
-    const timer = setTimeout(() => {
-      overloadNotified.current = true
-      toast.warning('Нейросеть не успевает обрабатывать голос', {
-        id: 'realtime-warning', duration: 10000,
-        description: 'Возможны прерывания звука. Выберите режим «Скорость» или закройте тяжёлые приложения.',
-        action: { label: 'Настройки', onClick: () => go('settings', 'performance') },
-      })
-    }, 3000)
-    return () => clearTimeout(timer)
-  }, [overloaded])
-  return null
-}
-
-// Keep the component type stable across the frequent engine status updates.
-// Defining it inside Sidebar remounts the button (and avatar) between mouse down
-// and mouse up, losing both the loaded image and the click.
-function VoiceRow({ id }: { id: string }) {
-  const { voices, status, selectVoice } = useStore()
-  const v = voices.find((x) => x.id === id)
-  if (!v) return null
-  const active = status!.engine.voiceId === id
-  return (
-    <button
-      disabled={status!.engine.state === 'loading'}
-      onClick={() => selectVoice(id)}
-      aria-label={v.nameRu}
-      aria-pressed={active}
-      className={cn(
-        'no-drag flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent',
-        active && 'bg-accent',
-      )}
-    >
-      <VoiceAvatar voice={v} className="size-6 rounded" />
-      <span className="truncate">{v.nameRu}</span>
-      {active && <span className="ml-auto size-1.5 rounded-full bg-primary" />}
-    </button>
-  )
-}
-
 function Sidebar({ page, go }: { page: Page; go: (p: Page) => void }) {
-  const { voices, settings, status } = useStore()
+  const { voices, settings, status, selectVoice } = useStore()
   const st = status!.engine.state
   const fav = voices.filter((v) => settings?.favorites.includes(v.id) && v.status === 'ready')
   const recent = (settings?.recent ?? []).map((id) => voices.find((v) => v.id === id)).filter((v) => v && v.status === 'ready').slice(0, 4)
+
+  const VoiceRow = ({ id }: { id: string }) => {
+    const v = voices.find((x) => x.id === id)!
+    const active = status!.engine.voiceId === id
+    return (
+      <button
+        onClick={() => selectVoice(id)}
+        className={cn(
+          'no-drag flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent',
+          active && 'bg-accent',
+        )}
+      >
+        <VoiceAvatar voice={v} className="size-6 rounded" />
+        <span className="truncate">{v.nameRu}</span>
+        {active && <span className="ml-auto size-1.5 rounded-full bg-primary" />}
+      </button>
+    )
+  }
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r bg-sidebar">
@@ -245,7 +174,7 @@ function BaseAssetsBanner() {
         {job && <Progress value={job.progress * 100} className="mt-2 h-1" />}
         {b.job?.stage === 'error' && <div className="mt-1 text-xs text-destructive">{b.job.error}</div>}
       </div>
-      <Button size="sm" disabled={!!job} onClick={() => api.downloadBase().catch((e) => toast.error(e.message))}>
+      <Button size="sm" disabled={!!job} onClick={() => api.downloadBase()}>
         {job ? `${Math.round(job.progress * 100)}%` : 'Загрузить'}
       </Button>
     </div>
@@ -254,28 +183,13 @@ function BaseAssetsBanner() {
 
 function EngineGate() {
   const { info } = useStore()
-  const [profile, setProfile] = useState<'nvidia' | 'amd' | 'laptop' | 'cpu'>('nvidia')
   const state = info?.state ?? 'starting'
-  const setup = info?.setup
-  const startSetup = async () => {
-    try {
-      await bridge.setupEngine(profile)
-    } catch (e) {
-      toast.error('Не удалось установить движок', { description: (e as Error).message })
-    }
-  }
-  const profiles = [
-    { id: 'nvidia' as const, title: 'NVIDIA', description: 'PyTorch с CUDA для совместимой видеокарты и драйвера NVIDIA.' },
-    { id: 'amd' as const, title: 'AMD', description: 'Версия для CPU. Ускорение AMD в Windows этим движком не поддерживается.' },
-    { id: 'laptop' as const, title: 'Ноутбук', description: 'Версия для CPU, без CUDA. Если есть NVIDIA, выберите профиль NVIDIA.' },
-    { id: 'cpu' as const, title: 'Только CPU', description: 'Для проверки моделей и примеров. Скорость живого преобразования зависит от процессора.' },
-  ]
-  const stages = { preparing: 'Подготовка', downloading: 'Загрузка зависимостей', installing: 'Установка зависимостей', verifying: 'Проверка окружения', complete: 'Окружение установлено', cancelled: 'Установка отменена', error: 'Ошибка установки' }
+  const busy = state === 'starting' || state === 'installing' || (state === 'ready')
   return (
     <div className="flex h-full flex-col">
-      <div className="drag h-10 shrink-0" />
-      <div className="min-h-0 flex-1 overflow-y-auto p-8">
-        <div className="mx-auto w-full max-w-xl space-y-5 py-4 text-center">
+      <div className="drag h-10" />
+      <div className="flex flex-1 items-center justify-center p-8">
+        <div className="w-full max-w-lg space-y-5 text-center">
           <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <AudioLines className="size-6" strokeWidth={2.5} />
           </div>
@@ -283,45 +197,29 @@ function EngineGate() {
             <>
               <div>
                 <h1 className="text-xl font-semibold tracking-tight">Установка аудиодвижка</h1>
-                <p className="mt-2 text-sm text-muted-foreground">Выберите оборудование. Python и зависимости загрузятся один раз; преобразование голоса выполняется локально.</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Для нейросетевого преобразования нужен локальный движок на Python и PyTorch с поддержкой CUDA (около 4 ГБ). Установка выполняется один раз; голос пользователя никогда не отправляется в интернет.
+                </p>
               </div>
-              <fieldset className="space-y-2 text-left">
-                <legend className="mb-2 text-sm font-medium">Профиль зависимостей</legend>
-                {profiles.map((item) => (
-                  <label key={item.id} className={cn('flex cursor-pointer items-start gap-3 rounded-lg border p-3', profile === item.id && 'border-primary bg-primary/5')}>
-                    <input type="radio" name="setup-profile" value={item.id} checked={profile === item.id} onChange={() => setProfile(item.id)} className="mt-1 accent-primary" />
-                    <span><span className="block text-sm font-medium">{item.title}</span><span className="block text-xs text-muted-foreground">{item.description}</span></span>
-                  </label>
-                ))}
-              </fieldset>
-              <div className="rounded-lg border bg-card p-3 text-left text-xs text-muted-foreground">
-                Нужны Windows x64, доступ к интернету для установки, свободное место для Python, PyTorch и моделей (несколько ГБ), микрофон. Для Discord и игр дополнительно нужен виртуальный кабель. Установить зависимости можно без системного Python.
-              </div>
-              <Button size="lg" onClick={startSetup}>Установить зависимости</Button>
-              {setup?.error && <p role="alert" className="text-sm text-destructive">{setup.error}</p>}
-              {setup?.stage === 'cancelled' && <p role="status" className="text-sm text-muted-foreground">Установка отменена. Можно выбрать профиль и повторить.</p>}
+              <Button size="lg" onClick={() => bridge.setupEngine()}>Установить движок</Button>
             </>
           ) : state === 'crashed' ? (
             <>
-              <div className="flex items-center justify-center gap-2 text-destructive"><TriangleAlert className="size-5" /> Аудиодвижок остановился</div>
-              <Button onClick={() => bridge.restartEngine().catch((e) => toast.error(e.message))}>Перезапустить</Button>
+              <div className="flex items-center justify-center gap-2 text-destructive">
+                <TriangleAlert className="size-5" /> Аудиодвижок остановился
+              </div>
+              <Button onClick={() => bridge.restartEngine()}>Перезапустить</Button>
             </>
           ) : (
-            <div className="space-y-3" role="status" aria-live="polite">
-              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
-                {state === 'installing' && setup ? stages[setup.stage] : state === 'installing' ? 'Устанавливаем зависимости…' : 'Запускаем аудиодвижок…'}
-              </div>
-              {state === 'installing' && <>
-                <progress aria-label="Установка зависимостей" className="h-1.5 w-full accent-primary" />
-                <p className="break-words text-xs text-muted-foreground">{setup?.detail || 'Это может занять несколько минут. Ход установки отображается в журнале ниже.'}</p>
-                <Button variant="outline" size="sm" onClick={() => bridge.cancelSetup().catch((e) => toast.error(e.message))}>Отменить установку</Button>
-              </>}
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              {state === 'installing' ? 'Устанавливаем зависимости — это может занять несколько минут…' : busy ? 'Запускаем аудиодвижок…' : ''}
             </div>
           )}
-          {(state === 'needs-setup' || state === 'installing') && <CableSetup />}
-          {!!info?.log.length && state !== 'starting' && (
-            <pre className="max-h-48 overflow-auto rounded-lg border bg-card p-3 text-left font-mono text-[11px] text-muted-foreground">{info.log.slice(-20).join('\n')}</pre>
+          {!!info?.log.length && (state !== 'starting') && (
+            <pre className="max-h-48 overflow-auto rounded-lg border bg-card p-3 text-left font-mono text-[11px] text-muted-foreground">
+              {info.log.slice(-20).join('\n')}
+            </pre>
           )}
         </div>
       </div>
@@ -339,8 +237,8 @@ function NoticeDialog() {
           <AlertDialogTitle>Перед началом</AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-2 text-sm">
-              <p>Готовые голоса не предустановлены. Каталог объединяет модели из разных источников. Язык и условия использования указаны по их метаданным; это не независимая проверка прав на голос.</p>
-              <p>Перед импортом модели проверьте её источник, условия использования и необходимые права и согласие на использование голоса.</p>
+              <p>Голоса персонажей в библиотеке — <b className="text-foreground">неофициальные фан-модели RVC</b> с Hugging Face. Права на персонажей и их озвучку принадлежат правообладателям и актёрам.</p>
+              <p>Используйте их только для личного некоммерческого развлечения и не выдавайте себя за реальных людей.</p>
               <p>Преобразование выполняется локально на вашем компьютере — аудио никуда не отправляется.</p>
             </div>
           </AlertDialogDescription>

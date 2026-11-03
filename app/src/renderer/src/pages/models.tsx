@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ShieldCheck, Trash2, Download, Upload, FolderOpen, Loader2, X, FileAudio, HardDrive, BookOpen, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -34,7 +34,7 @@ export function ModelsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex flex-wrap items-end justify-between gap-4 px-8 pb-5">
+      <header className="flex items-end justify-between gap-4 px-8 pb-5">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Менеджер моделей</h1>
           <p className="mt-1 text-sm text-muted-foreground">Загрузка, проверка целостности, удаление и импорт моделей RVC.</p>
@@ -62,7 +62,7 @@ export function ModelsPage() {
               {base.ready ? (
                 <Badge variant="outline" className="border-live/30 bg-live/10 text-live">Установлены</Badge>
               ) : (
-                <Button size="sm" disabled={!!baseJob} onClick={() => api.downloadBase().catch((e) => toast.error(e.message))}>
+                <Button size="sm" disabled={!!baseJob} onClick={() => api.downloadBase()}>
                   {baseJob ? <Loader2 className="animate-spin" /> : <Download />} Загрузить
                 </Button>
               )}
@@ -184,7 +184,7 @@ function ModelRow({ v, onDelete }: { v: Voice; onDelete: () => void }) {
               {verifying ? <Loader2 className="animate-spin" /> : <ShieldCheck />}
             </Button>
             {v.status === 'corrupted' && !v.custom && (
-              <Button variant="ghost" size="icon" className="size-8" onClick={() => api.download(v.id).catch((e) => toast.error(e.message))} title="Загрузить заново">
+              <Button variant="ghost" size="icon" className="size-8" onClick={() => api.download(v.id)} title="Загрузить заново">
                 <Download />
               </Button>
             )}
@@ -193,7 +193,7 @@ function ModelRow({ v, onDelete }: { v: Voice; onDelete: () => void }) {
             </Button>
           </>
         ) : v.status === 'downloading' ? (
-          <Button variant="ghost" size="icon" className="size-8" onClick={() => api.cancel(v.id).catch((e) => toast.error(e.message))} title="Отменить">
+          <Button variant="ghost" size="icon" className="size-8" onClick={() => api.cancel(v.id)} title="Отменить">
             <X />
           </Button>
         ) : (
@@ -215,14 +215,13 @@ function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
 
   const pick = async (kind: 'pth' | 'index') => {
     const p = await bridge.openFile({
-      title: kind === 'pth' ? 'Модель RVC (.pth или .zip)' : 'Файл индекса (.index)',
-      filters: [{ name: kind === 'pth' ? 'RVC model' : 'Faiss index', extensions: kind === 'pth' ? ['pth', 'zip'] : ['index'] }],
+      title: kind === 'pth' ? 'Файл модели RVC (.pth)' : 'Файл индекса (.index)',
+      filters: [{ name: kind === 'pth' ? 'RVC model' : 'Faiss index', extensions: [kind] }],
     })
     if (!p) return
     if (kind === 'pth') {
       setPth(p)
-      if (/\.zip$/i.test(p)) setIndex(null)
-      if (!name) setName(p.split(/[\\/]/).pop()!.replace(/\.(pth|zip)$/i, '').replace(/[_-]+/g, ' '))
+      if (!name) setName(p.split(/[\\/]/).pop()!.replace(/\.pth$/i, '').replace(/[_-]+/g, ' '))
     } else setIndex(p)
   }
 
@@ -243,21 +242,21 @@ function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!busy) onOpenChange(next) }}>
-      <DialogContent className="min-w-0 grid-cols-[minmax(0,1fr)] sm:max-w-lg">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Импорт модели RVC</DialogTitle>
           <DialogDescription>
-            Поддерживаются RVC v1/v2: файл .pth с необязательным .index или ZIP с одной моделью .pth и не более чем одним .index. Архив распаковывается и проверяется приложением; код модели не выполняется.
+            Поддерживаются модели RVC v1/v2 для инференса (.pth) и необязательный индекс (.index). Файл открывается в безопасном режиме — код из него не выполняется.
           </DialogDescription>
         </DialogHeader>
-        <div className="min-w-0 space-y-4">
+        <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>Название</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Гомер Симпсон" />
           </div>
-          <FilePick label="Модель (.pth или .zip)" value={pth} disabled={busy} onPick={() => pick('pth')} />
-          <FilePick label="Индекс (.index) — необязательно" value={index} disabled={busy || !!pth?.toLowerCase().endsWith('.zip')} onPick={() => pick('index')} onClear={() => setIndex(null)} />
+          <FilePick label="Модель (.pth)" value={pth} onPick={() => pick('pth')} />
+          <FilePick label="Индекс (.index) — необязательно" value={index} onPick={() => pick('index')} onClear={() => setIndex(null)} />
           <div className="space-y-1.5">
             <Label>Категория</Label>
             <Select value={category} onValueChange={(v) => setCategory(v as Category)}>
@@ -274,7 +273,7 @@ function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
           </p>
         </div>
         <DialogFooter>
-          <Button variant="ghost" disabled={busy} onClick={() => onOpenChange(false)}>Отмена</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Отмена</Button>
           <Button disabled={!pth || !name.trim() || busy} onClick={submit}>
             {busy && <Loader2 className="animate-spin" />} Импортировать
           </Button>
@@ -284,27 +283,18 @@ function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
   )
 }
 
-function FilePick({ label, value, onPick, onClear, disabled }: { label: string; value: string | null; onPick: () => void; onClear?: () => void; disabled?: boolean }) {
-  const id = useId()
+function FilePick({ label, value, onPick, onClear }: { label: string; value: string | null; onPick: () => void; onClear?: () => void }) {
   return (
-    <div className="min-w-0 space-y-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      <div className="flex w-full min-w-0 gap-2">
-        <button
-          id={id}
-          type="button"
-          onClick={onPick}
-          disabled={disabled}
-          title={value ?? 'Выбрать файл'}
-          aria-label={`Изменить путь: ${label}`}
-          className="flex h-9 min-w-0 flex-1 items-center overflow-hidden rounded-md border bg-input/30 px-3 text-left text-sm transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"
-        >
-          <span className={cn('block min-w-0 flex-1 truncate', !value && 'text-muted-foreground')}>{value ?? 'Файл не выбран'}</span>
-        </button>
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <div className="flex gap-2">
+        <div className="flex h-9 min-w-0 flex-1 items-center rounded-md border bg-input/30 px-3 text-sm">
+          <span className={cn('truncate', !value && 'text-muted-foreground')}>{value ?? 'Файл не выбран'}</span>
+        </div>
         {value && onClear && (
-          <Button variant="ghost" size="icon" className="shrink-0" disabled={disabled} aria-label={`Очистить: ${label}`} onClick={onClear}><X /></Button>
+          <Button variant="ghost" size="icon" onClick={onClear}><X /></Button>
         )}
-        <Button variant="outline" className="shrink-0" disabled={disabled} aria-label={`Выбрать файл: ${label}`} onClick={onPick}>Обзор…</Button>
+        <Button variant="outline" onClick={onPick}>Обзор…</Button>
       </div>
     </div>
   )

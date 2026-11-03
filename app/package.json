@@ -1,7 +1,7 @@
 {
   "name": "vocalis",
   "productName": "Vocalis",
-  "version": "0.2.4",
+  "version": "0.1.5",
   "description": "Real-time AI voice changer (RVC) for Windows",
   "main": "out/main/index.js",
   "author": "Vocalis",
@@ -11,12 +11,10 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "lint": "oxlint src",
-    "dist": "electron-vite build && electron-builder --win --config electron-builder.yml",
+    "dist": "electron-vite build && electron-builder --win --publish never --config electron-builder.yml",
     "postdist": "powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/clean-releases.ps1"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
@@ -25,8 +23,6 @@
     "electron": "^45.2.1",
     "electron-builder": "^26.18.0",
     "electron-vite": "^6.0.0",
-    "eslint": "^10.14.0",
-    "oxlint": "^1.90.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.5"
@@ -48,13 +44,5 @@
   },
   "allowScripts": {
     "electron@45.2.1": true
-  },
-  "homepage": "https://github.com/melekhovv/vocalis",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/melekhovv/vocalis.git"
-  },
-  "bugs": {
-    "url": "https://github.com/melekhovv/vocalis/issues"
   }
 }

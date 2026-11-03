@@ -69,12 +69,8 @@ function initials(name: string) {
 export function VoiceAvatar({ voice, className, ring }: { voice: Voice | null; className?: string; ring?: boolean }) {
   const [src, setSrc] = useState<string | null>(null)
   useEffect(() => {
-    let cancelled = false
     setSrc(null)
-    if (voice?.wikipedia) loadAvatar(voice.wikipedia).then((data) => {
-      if (!cancelled) setSrc(data)
-    })
-    return () => { cancelled = true }
+    if (voice?.wikipedia) loadAvatar(voice.wikipedia).then(setSrc)
   }, [voice?.wikipedia])
 
   const accent = voice?.accent ?? '#71717a'

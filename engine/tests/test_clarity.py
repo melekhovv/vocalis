@@ -26,13 +26,12 @@ class ClarityTests(unittest.TestCase):
         self.assertEqual(e.params['input_gain'],1.5)
         self.assertEqual(e.devices['input'],1)
 
-    def test_mode_is_remembered_per_voice_without_enabling_missing_index(self):
+    def test_mode_survives_voice_selection_without_enabling_missing_index(self):
         e=self.engine();e.update_params({'clarity_mode':True});e.select_voice('plain')
-        self.assertFalse(e.params['clarity_mode'])
-        self.assertEqual(e.params['index_rate'],0.)
-        self.assertEqual(e.params['protect'],.33)
-        e.select_voice('indexed')
         self.assertTrue(e.params['clarity_mode'])
+        self.assertEqual(e.params['index_rate'],0.)
+        self.assertEqual(e.params['protect'],.1)
+        e.select_voice('indexed')
         self.assertEqual(e.params['index_rate'],.4)
 
     def test_disable_restores_selected_voice_profile(self):
@@ -48,7 +47,7 @@ class ClarityTests(unittest.TestCase):
 
     def test_source_registry_contains_checked_public_links(self):
         data=server.voice_sources()
-        self.assertGreaterEqual(len(data['sources']),2)
+        self.assertGreaterEqual(len(data['sources']),8)
         self.assertTrue(data['checkedAt'])
         self.assertTrue(all(s['url'].startswith('https://') for s in data['sources']))
         self.assertTrue(all(s['httpStatus']==200 for s in data['sources']))

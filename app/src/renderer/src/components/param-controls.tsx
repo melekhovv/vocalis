@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
@@ -8,7 +8,7 @@ import { api } from '@/lib/api'
 import type { EngineParams } from '@/lib/types'
 
 export function setParam(patch: Partial<EngineParams>) {
-  return api.params(patch).catch((e) => { toast.error('Не удалось применить настройку', { description: e.message }); return undefined })
+  return api.params(patch).catch((e) => toast.error('Не удалось применить настройку', { description: e.message }))
 }
 
 export function ParamSlider({
@@ -22,15 +22,13 @@ export function ParamSlider({
   step: number
   format: (v: number) => string
   disabled?: boolean
-  onCommit: (v: number) => unknown
+  onCommit: (v: number) => void
 }) {
-  const latest = useRef(value)
-  latest.current = value
   const [local, setLocal] = useState(value)
   const [dragging, setDragging] = useState(false)
   useEffect(() => {
     if (!dragging) setLocal(value)
-  }, [value])
+  }, [value, dragging])
   return (
     <div className="space-y-2.5">
       <div className="flex items-center justify-between text-sm">
@@ -41,7 +39,6 @@ export function ParamSlider({
         <span className="tabular font-mono text-xs text-muted-foreground">{format(local)}</span>
       </div>
       <Slider
-        aria-label={label}
         disabled={disabled}
         value={[local]}
         min={min}
@@ -51,10 +48,9 @@ export function ParamSlider({
           setDragging(true)
           setLocal(v)
         }}
-        onValueCommit={async ([v]) => {
+        onValueCommit={([v]) => {
           setDragging(false)
-          const result = onCommit(v)
-          if (result instanceof Promise && !(await result)) setLocal(latest.current)
+          onCommit(v)
         }}
       />
     </div>
@@ -68,7 +64,7 @@ export function ParamSwitch({ label, hint, checked, onChange, disabled }: { labe
         {label}
         {hint && <Hint text={hint} />}
       </span>
-      <Switch aria-label={label} checked={checked} onCheckedChange={onChange} disabled={disabled} />
+      <Switch checked={checked} onCheckedChange={onChange} disabled={disabled} />
     </label>
   )
 }
@@ -77,7 +73,7 @@ export function Hint({ text }: { text: string }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button type="button" aria-label="Подсказка" className="rounded text-muted-foreground/70" onClick={(e) => e.preventDefault()}><Info className="size-3.5" /></button>
+        <Info className="size-3.5 text-muted-foreground/70" />
       </TooltipTrigger>
       <TooltipContent className="max-w-64 text-xs leading-relaxed">{text}</TooltipContent>
     </Tooltip>

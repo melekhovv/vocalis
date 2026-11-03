@@ -12,9 +12,9 @@ export function LevelMeter({ label, db, gateDb, className }: { label: string; db
   const color = db > -6 ? 'bg-destructive' : db > -18 ? 'bg-warn' : 'bg-live'
   return (
     <div className={cn('space-y-1.5', className)}>
-      <div className="flex items-baseline justify-between gap-2 text-xs">
-        <span className="min-w-0 truncate text-muted-foreground" title={label}>{label}</span>
-        <span className="tabular shrink-0 font-mono text-[11px] whitespace-nowrap text-muted-foreground">{db <= -119 ? '−∞' : `${db.toFixed(0)} dB`}</span>
+      <div className="flex items-baseline justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="tabular font-mono text-[11px] text-muted-foreground">{db <= -119 ? '−∞' : `${db.toFixed(0)} dB`}</span>
       </div>
       <div className="relative h-1.5 overflow-hidden rounded-full bg-muted">
         <div className={cn('absolute inset-y-0 left-0 rounded-full transition-[width] duration-100', color)} style={{ width: `${v * 100}%` }} />

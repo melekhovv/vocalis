@@ -20,7 +20,7 @@ export function SystemPage() {
 
   return (
     <ScrollArea className="h-full">
-      <div className="w-full space-y-5 px-8 pb-10">
+      <div className="max-w-4xl space-y-5 px-8 pb-10">
         <h1 className="text-2xl font-semibold tracking-tight">Система</h1>
         <div className="grid grid-cols-3 gap-4">
           <Stat icon={Cpu} label="Процессор" value={`${s.cpu.toFixed(0)}%`} sub={hw ? `${hw.cores} ядер / ${hw.threads} потоков` : ''} progress={s.cpu} />
@@ -87,7 +87,7 @@ function Stat({ icon: Icon, label, value, sub, progress }: { icon: typeof Cpu; l
 
 function KV({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex min-w-0 flex-wrap justify-between gap-x-4 gap-y-1">
+    <div className="flex justify-between gap-4">
       <dt className="text-muted-foreground">{k}</dt>
       <dd className="tabular truncate text-right font-mono text-xs" title={v}>{v}</dd>
     </div>

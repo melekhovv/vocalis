@@ -7,19 +7,15 @@
       "path": "rvc/models/embedders/contentvec/pytorch_model.bin",
       "url": "https://huggingface.co/IAHispano/Applio/resolve/3ff370b7023086f57e200ef86a9a251ddf4da472/Resources/embedders/contentvec/pytorch_model.bin",
       "sha256": "d8dd400e054ddf4e6be75dab5a2549db748cc99e756a097c496c099f65a4854e",
-      "size": 378342945,
-      "license": "MIT",
-      "licenseUrl": "https://huggingface.co/IAHispano/Applio/blob/3ff370b7023086f57e200ef86a9a251ddf4da472/README.md"
+      "size": 378342945
     },
     {
       "id": "contentvec-config",
       "title": "ContentVec config",
       "path": "rvc/models/embedders/contentvec/config.json",
       "url": "https://huggingface.co/IAHispano/Applio/resolve/3ff370b7023086f57e200ef86a9a251ddf4da472/Resources/embedders/contentvec/config.json",
-      "sha256": "2ddde063b795d38d9051a7215a092fecf4cfe148b54251e38de51d88d356898b",
-      "size": 1388,
-      "license": "MIT",
-      "licenseUrl": "https://huggingface.co/IAHispano/Applio/blob/3ff370b7023086f57e200ef86a9a251ddf4da472/README.md"
+      "sha256": null,
+      "size": 1388
     },
     {
       "id": "rmvpe",
@@ -27,9 +23,7 @@
       "path": "rvc/models/predictors/rmvpe.pt",
       "url": "https://huggingface.co/IAHispano/Applio/resolve/3ff370b7023086f57e200ef86a9a251ddf4da472/Resources/predictors/rmvpe.pt",
       "sha256": "6d62215f4306e3ca278246188607209f09af3dc77ed4232efdd069798c4ec193",
-      "size": 181184272,
-      "license": "MIT",
-      "licenseUrl": "https://huggingface.co/IAHispano/Applio/blob/3ff370b7023086f57e200ef86a9a251ddf4da472/README.md"
+      "size": 181184272
     },
     {
       "id": "fcpe",
@@ -37,241 +31,679 @@
       "path": "rvc/models/predictors/fcpe.pt",
       "url": "https://huggingface.co/IAHispano/Applio/resolve/3ff370b7023086f57e200ef86a9a251ddf4da472/Resources/predictors/fcpe.pt",
       "sha256": "8544427eebbf2baef6213cc9a05057e46961617a8e5bd96975a0d42da6a09059",
-      "size": 43362881,
-      "license": "MIT",
-      "licenseUrl": "https://huggingface.co/IAHispano/Applio/blob/3ff370b7023086f57e200ef86a9a251ddf4da472/README.md"
+      "size": 43362881
     }
   ],
   "voices": [
     {
-      "id": "maizenberg-ru",
-      "name": "Майзенберг",
-      "nameRu": "Майзенберг",
-      "franchise": "Даниил Волков",
-      "category": "other",
-      "description": "RVC v2, 48 кГц, около 35 минут одного спикера. Автор заявляет разрешение владельца голоса; действуют отдельная лицензия, требования маркировки AI и ограничения использования.",
-      "language": "ru",
-      "suggestedPitch": 0,
-      "accent": "#a78bfa",
-      "wikipedia": null,
-      "author": "firexrwt",
-      "sourceProvider": "huggingface",
-      "sourceId": "firexrwt/maizenberg-rvc-v1",
-      "sourceUrl": "https://huggingface.co/firexrwt/maizenberg-rvc-v1/blob/4a6271ede5cb0467d0c356f79b485b314d5a0f0d/README.md",
-      "languageEvidenceUrl": "https://huggingface.co/firexrwt/maizenberg-rvc-v1/blob/4a6271ede5cb0467d0c356f79b485b314d5a0f0d/README.md",
-      "trainingLanguageStatus": "author-declared",
-      "compatibilityStatus": "not-tested",
+      "id": "spongebob-ru",
+      "name": "SpongeBob SquarePants (RU)",
+      "nameRu": "Губка Боб",
+      "franchise": "SpongeBob SquarePants",
+      "category": "cartoon",
+      "description": "Русский дубляж. Звонкий и бодрый голос Губки Боба.",
+      "language": "ru-RU",
+      "suggestedPitch": 5,
+      "accent": "#facc15",
+      "wikipedia": "SpongeBob_SquarePants_(character)",
       "model": {
-        "title": "Майзенберг",
-        "format": "RVC (.pth + .index)",
-        "repo": "firexrwt/maizenberg-rvc-v1",
-        "revision": "4a6271ede5cb0467d0c356f79b485b314d5a0f0d",
-        "upstream": "https://huggingface.co/firexrwt/maizenberg-rvc-v1",
-        "license": "Maizenberg Responsible Voice License 1.0",
-        "licenseUrl": "https://huggingface.co/firexrwt/maizenberg-rvc-v1/blob/4a6271ede5cb0467d0c356f79b485b314d5a0f0d/LICENSE.md",
-        "licenseNote": "Лицензия автора разрешает бесплатное скачивание/использование при соблюдении условий. Публичное аудио требует маркировки AI и указания авторства; реклама, заказные работы, коммерческие приложения/сервисы требуют отдельного разрешения. Исходный датасет не лицензирован этой лицензией.",
-        "rights": {
-          "status": "unverified",
-          "datasetLicense": null,
-          "evidenceUrl": null,
-          "verifiedAt": null,
-          "sourceUrl": "https://huggingface.co/firexrwt/maizenberg-rvc-v1/blob/4a6271ede5cb0467d0c356f79b485b314d5a0f0d/README.md",
-          "checkedAt": "2026-11-03",
-          "note": "Метаданные источника проверены; законность и права на исходные записи не сертифицированы Vocalis."
-        },
-        "files": [
-          {
-            "kind": "pth",
-            "path": "maizenberg_rvc_v1.pth",
-            "url": "https://huggingface.co/firexrwt/maizenberg-rvc-v1/resolve/4a6271ede5cb0467d0c356f79b485b314d5a0f0d/maizenberg_rvc_v1.pth",
-            "size": 57591325,
-            "sha256": "16cb33db73b081fbf22cb1f35d7eb9bc2152cebcea5227fa566c7fe5e281da49"
-          },
-          {
-            "kind": "index",
-            "path": "maizenberg_rvc_v1.index",
-            "url": "https://huggingface.co/firexrwt/maizenberg-rvc-v1/resolve/4a6271ede5cb0467d0c356f79b485b314d5a0f0d/maizenberg_rvc_v1.index",
-            "size": 360729739,
-            "sha256": "d97d6076d26909fb4c4570f031fafef543308c854a97ebba35d05f4ccd100d17"
-          }
-        ]
-      },
-      "recommendedParams": {
-        "pitch": 0,
-        "f0_method": "rmvpe",
-        "index_rate": 0.5,
-        "protect": 0.5
-      }
-    },
-    {
-      "id": "nyamura-ru",
-      "name": "Nyamura — русский",
-      "nameRu": "Nyamura — русский",
-      "franchise": "Nyamura",
-      "category": "other",
-      "description": "По карточке автора: модель под русскую речь, 81 сэмпл, 350 эпох. Условия использования весов и исходных записей не указаны.",
-      "language": "ru",
-      "suggestedPitch": 0,
-      "accent": "#a78bfa",
-      "wikipedia": null,
-      "author": "RVC-RU",
-      "sourceProvider": "huggingface",
-      "sourceId": "RVC-RU/RVC-Nyamura-RU",
-      "sourceUrl": "https://huggingface.co/RVC-RU/RVC-Nyamura-RU/blob/2a62d63e3364c307cd8923f23c276813e26c6f5c/README.md",
-      "languageEvidenceUrl": "https://huggingface.co/RVC-RU/RVC-Nyamura-RU/blob/2a62d63e3364c307cd8923f23c276813e26c6f5c/README.md",
-      "trainingLanguageStatus": "author-declared",
-      "compatibilityStatus": "not-tested",
-      "model": {
-        "title": "Nyamura — русский",
-        "format": "RVC (.pth + .index)",
-        "repo": "RVC-RU/RVC-Nyamura-RU",
-        "revision": "2a62d63e3364c307cd8923f23c276813e26c6f5c",
-        "upstream": "https://huggingface.co/RVC-RU/RVC-Nyamura-RU",
+        "title": "Губка Боб — русский дубляж",
+        "format": "RVC v2 (.pth + .index)",
+        "repo": "DaunIDebil/SpongebobRUSDub-RVC2.0",
+        "revision": "2a4485394874ee12039b5393641ec9e6eb388ab9",
+        "upstream": "https://huggingface.co/DaunIDebil/SpongebobRUSDub-RVC2.0",
         "license": "Не указана",
-        "licenseUrl": "https://huggingface.co/RVC-RU/RVC-Nyamura-RU/blob/2a62d63e3364c307cd8923f23c276813e26c6f5c/README.md",
-        "licenseNote": "Лицензия не указана. Публичное наличие весов и датасета не подтверждает права на использование записей или распространение.",
-        "rights": {
-          "status": "unverified",
-          "datasetLicense": null,
-          "evidenceUrl": null,
-          "verifiedAt": null,
-          "sourceUrl": "https://huggingface.co/RVC-RU/RVC-Nyamura-RU/blob/2a62d63e3364c307cd8923f23c276813e26c6f5c/README.md",
-          "checkedAt": "2026-11-03",
-          "note": "Метаданные источника проверены; законность и права на исходные записи не сертифицированы Vocalis."
-        },
+        "licenseNote": "Неофициальная модель русского дубляжа. Условия источника сохраняются.",
+        "archive": {
+          "path": "SpongebobRUSDub-RVC2.0.zip",
+          "size": 74213956,
+          "sha256": "f822a85037918ccfa132709e9481f37126aaa3d14bcc7b1b94273cf8b75e9031",
+          "members": {
+            "pth": "Spongebob.pth",
+            "index": "added_IVF321_Flat_nprobe_1_Spongebob_v2.index"
+          }
+        }
+      }
+    },
+    {
+      "id": "shrek-ru",
+      "name": "Shrek (RU)",
+      "nameRu": "Шрек",
+      "franchise": "Shrek",
+      "category": "film_tv",
+      "description": "Русский дубляж. Густой, басовитый голос Шрека.",
+      "language": "ru-RU",
+      "suggestedPitch": -2,
+      "accent": "#84cc16",
+      "wikipedia": "Shrek_(character)",
+      "model": {
+        "title": "Шрек — русский дубляж",
+        "format": "RVC v2 (.pth + .index)",
+        "repo": "hoffmaninai/shrekrus",
+        "revision": "a4961562e97afa237098d7ae7d74ce8354d294e0",
+        "upstream": "https://huggingface.co/hoffmaninai/shrekrus",
+        "license": "openrail",
+        "licenseNote": "Неофициальная модель русского дубляжа. Условия источника сохраняются.",
+        "archive": {
+          "path": "ShrekRus.zip",
+          "size": 58905095,
+          "sha256": "bd220efac03c7ca36170ef2e858b457a20bac5ae8b1fd636c534056872a0c573",
+          "members": {
+            "index": "added_IVF100_Flat_nprobe_1_ShrekRus_v2.index",
+            "pth": "ShrekRus.pth"
+          }
+        }
+      }
+    },
+    {
+      "id": "sonic-ru",
+      "name": "Sonic the Hedgehog (RU)",
+      "nameRu": "Соник",
+      "franchise": "Sonic the Hedgehog",
+      "category": "game",
+      "description": "Русский дубляж. Энергичный и уверенный голос Соника.",
+      "language": "ru-RU",
+      "suggestedPitch": 2,
+      "accent": "#3b82f6",
+      "wikipedia": "Sonic_the_Hedgehog_(character)",
+      "model": {
+        "title": "Соник — русский дубляж",
+        "format": "RVC v2 (.pth + .index)",
+        "repo": "niobures/RVC-Models",
+        "revision": "4d174cf0b72edfcdba74c8510bdc894a2dd53b3c",
+        "upstream": "https://huggingface.co/niobures/RVC-Models",
+        "license": "Не указана",
+        "licenseNote": "Неофициальная модель русского дубляжа. Условия источника сохраняются.",
         "files": [
           {
             "kind": "pth",
-            "path": "model/nyamura-ru.pth",
-            "url": "https://huggingface.co/RVC-RU/RVC-Nyamura-RU/resolve/2a62d63e3364c307cd8923f23c276813e26c6f5c/model/nyamura-ru.pth",
-            "size": 55028048,
-            "sha256": "37a0a90b814e7ddfc625515f96a6900769a372ed2503698ffdf84315810d32ab"
+            "path": "rvc-big-ru-voice-pack/Персонажи/sonic/Sonic-rus dub.pth",
+            "size": 55228328,
+            "sha256": "d862918f90cca4fdfebed487a8b1e66d15d0e75e9e20f23f363d0f44d6784889"
           },
           {
             "kind": "index",
-            "path": "model/added_IVF762_Flat_nprobe_1_nyamura-ru_v1.index",
-            "url": "https://huggingface.co/RVC-RU/RVC-Nyamura-RU/resolve/2a62d63e3364c307cd8923f23c276813e26c6f5c/model/added_IVF762_Flat_nprobe_1_nyamura-ru_v1.index",
-            "size": 31486459,
-            "sha256": "1eb96bb58d2aeb5d892506543faec6f3a270d7cc9896d9f70949d787d7334401"
+            "path": "rvc-big-ru-voice-pack/Персонажи/sonic/added_IVF20_Flat_nprobe_1_sonic_v2.index",
+            "size": 2519579,
+            "sha256": "48306cab79c14f8e915cb8a5064015a4f5a8fcc4574998fe46cc418e0fafea80"
           }
         ]
       }
     },
     {
-      "id": "glad-valakas-ru",
-      "name": "GLAD VALAKAS — русский",
-      "nameRu": "GLAD VALAKAS — русский",
-      "franchise": "GLAD VALAKAS",
-      "category": "other",
-      "description": "По карточке автора: русскоязычная модель, 350 эпох. Репозиторий заявляет MIT; права на исходную речь отдельно не подтверждены.",
-      "language": "ru",
-      "suggestedPitch": 0,
-      "accent": "#a78bfa",
+      "id": "pudge-ru",
+      "name": "Pudge",
+      "nameRu": "Пудж",
+      "franchise": "Dota 2",
+      "category": "game",
+      "description": "Русская озвучка Пуджа из Dota 2. Грубый, низкий тембр.",
+      "language": "ru-RU",
+      "suggestedPitch": -3,
+      "accent": "#a3a653",
       "wikipedia": null,
-      "author": "RVC-RU",
-      "sourceProvider": "huggingface",
-      "sourceId": "RVC-RU/glad-valakas-ru",
-      "sourceUrl": "https://huggingface.co/RVC-RU/glad-valakas-ru/blob/5bb96b17628f654e7305c062111bc7a2fc65b1ef/README.md",
-      "languageEvidenceUrl": "https://huggingface.co/RVC-RU/glad-valakas-ru/blob/5bb96b17628f654e7305c062111bc7a2fc65b1ef/README.md",
-      "trainingLanguageStatus": "author-declared",
-      "compatibilityStatus": "not-tested",
+      "recommendedParams": {
+        "index_rate": 0.75,
+        "protect": 0.33,
+        "f0_method": "rmvpe"
+      },
       "model": {
-        "title": "GLAD VALAKAS — русский",
-        "format": "RVC (.pth + .index)",
-        "repo": "RVC-RU/glad-valakas-ru",
-        "revision": "5bb96b17628f654e7305c062111bc7a2fc65b1ef",
-        "upstream": "https://huggingface.co/RVC-RU/glad-valakas-ru",
-        "license": "MIT",
-        "licenseUrl": "https://huggingface.co/RVC-RU/glad-valakas-ru/blob/5bb96b17628f654e7305c062111bc7a2fc65b1ef/README.md",
-        "licenseNote": "MIT — заявление в карточке репозитория. Условия и права на исходные записи отдельно не подтверждены; это не сертификация прав на голос.",
-        "rights": {
-          "status": "unverified",
-          "datasetLicense": null,
-          "evidenceUrl": null,
-          "verifiedAt": null,
-          "sourceUrl": "https://huggingface.co/RVC-RU/glad-valakas-ru/blob/5bb96b17628f654e7305c062111bc7a2fc65b1ef/README.md",
-          "checkedAt": "2026-11-03",
-          "note": "Метаданные источника проверены; законность и права на исходные записи не сертифицированы Vocalis."
-        },
+        "repo": "niobures/RVC-Models",
+        "revision": "4d174cf0b72edfcdba74c8510bdc894a2dd53b3c",
+        "license": "Не указана",
+        "title": "Пудж — русский голос, RVC v2",
+        "format": "RVC v2 (.pth + .index)",
+        "upstream": "https://huggingface.co/niobures/RVC-Models",
+        "licenseNote": "Неофициальная модель. Условия и авторство указаны в исходном репозитории.",
         "files": [
           {
-            "kind": "pth",
-            "path": "valakas-ru.pth",
-            "url": "https://huggingface.co/RVC-RU/glad-valakas-ru/resolve/5bb96b17628f654e7305c062111bc7a2fc65b1ef/valakas-ru.pth",
-            "size": 55224656,
-            "sha256": "626dd9b0c2327923cf6fd3f71730d707d7412b875e98cb12a661c483fec67313"
+            "kind": "index",
+            "path": "rvc-big-ru-voice-pack/Персонажи/Пудж/pudge.index",
+            "size": 53459699,
+            "sha256": "ec099340e85917ee0d32f25ac1ae8e52df40c16162d6c285dd65428b98352aef"
           },
           {
-            "kind": "index",
-            "path": "added_IVF663_Flat_nprobe_1_valakas-ru_v2.index",
-            "url": "https://huggingface.co/RVC-RU/glad-valakas-ru/resolve/5bb96b17628f654e7305c062111bc7a2fc65b1ef/added_IVF663_Flat_nprobe_1_valakas-ru_v2.index",
-            "size": 81681739,
-            "sha256": "ab371049c8110aa2c6be6b92b6a1a9684bf117856d190dde586dd60af321cee6"
+            "kind": "pth",
+            "path": "rvc-big-ru-voice-pack/Персонажи/Пудж/pudge.pth",
+            "size": 55193241,
+            "sha256": "208d527ac15cc349645ce0cee7724c2ac3725bccbe5aa83dbe4102a7e0cacd4c"
           }
         ]
       }
     },
     {
-      "id": "ivona-maxim-ru",
-      "name": "Максим — русский",
-      "nameRu": "Максим — русский",
-      "franchise": "Ivona Maxim",
-      "category": "other",
-      "description": "По карточке автора: 30 минут речи TTS Ivona Maxim, обычные тексты и скороговорки, 16 эпох. Источник заявляет MIT для модели, права на исходную синтетическую речь неизвестны.",
-      "language": "ru",
+      "id": "invoker-ru",
+      "name": "Invoker",
+      "nameRu": "Инвокер",
+      "franchise": "Dota 2",
+      "category": "game",
+      "description": "Русская озвучка Инвокера из Dota 2. Чёткая и властная речь.",
+      "language": "ru-RU",
       "suggestedPitch": 0,
+      "accent": "#d4a0ef",
+      "wikipedia": null,
+      "recommendedParams": {
+        "index_rate": 0.75,
+        "protect": 0.33,
+        "f0_method": "rmvpe"
+      },
+      "model": {
+        "repo": "Andrys23/PudgeRuRVC",
+        "revision": "b2ae2b88a039d3f3749497160c290e770deee09d",
+        "license": "openrail",
+        "title": "Инвокер — русский голос, RVC v2",
+        "format": "RVC v2 (.pth + .index)",
+        "upstream": "https://huggingface.co/Andrys23/PudgeRuRVC",
+        "licenseNote": "Неофициальная модель. Условия и авторство указаны в исходном репозитории.",
+        "archive": {
+          "path": "invocerRu.zip",
+          "size": 98220338,
+          "sha256": "52cab509d7bd72b8cdd26dbdbb2ce3b4428f68c4d2fcb8448f87aa478a9d6968",
+          "members": {
+            "pth": "invocerRu.pth",
+            "index": "added_IVF640_Flat_nprobe_1_invocerRu_v2.index"
+          }
+        }
+      }
+    },
+    {
+      "id": "treant-ru",
+      "name": "Treant Protector",
+      "nameRu": "Трент",
+      "franchise": "Dota 2",
+      "category": "game",
+      "description": "Русская озвучка Treant Protector из Dota 2. Низкий голос древесного защитника.",
+      "language": "ru-RU",
+      "suggestedPitch": -4,
+      "accent": "#65a30d",
+      "wikipedia": null,
+      "recommendedParams": {
+        "index_rate": 0.75,
+        "protect": 0.33,
+        "f0_method": "rmvpe"
+      },
+      "model": {
+        "repo": "hedfkoa/rvc-dota-2",
+        "revision": "9899ed483e2081cd33258eb2a946263cf42b61fd",
+        "license": "unlicense",
+        "title": "Трент — русский голос, RVC v2",
+        "format": "RVC v2 (.pth + .index)",
+        "upstream": "https://huggingface.co/hedfkoa/rvc-dota-2",
+        "licenseNote": "Неофициальная модель. Условия и авторство указаны в исходном репозитории.",
+        "archive": {
+          "path": "treant-protector-ru 100 epochs 40k v2.zip",
+          "size": 168656232,
+          "sha256": "5b86fbb48cebe510f423347c3b7863046c602783e5d1899185b88ead23d29c12",
+          "members": {
+            "pth": "treant-protector.pth",
+            "index": "added_IVF1640_Flat_nprobe_1_treant-protector_v2.index"
+          }
+        }
+      }
+    },
+    {
+      "id": "witch-doctor-ru",
+      "name": "Witch Doctor",
+      "nameRu": "Витч Доктор",
+      "franchise": "Dota 2",
+      "category": "game",
+      "description": "Русская игровая озвучка. Модель обучена на коротком наборе реплик Витч Доктора; возможны артефакты.",
+      "language": "ru-RU",
+      "suggestedPitch": -2,
       "accent": "#a78bfa",
       "wikipedia": null,
-      "author": "cotheq",
-      "sourceProvider": "huggingface",
-      "sourceId": "cotheq/ivona-maxim",
-      "sourceUrl": "https://huggingface.co/cotheq/ivona-maxim/blob/6142861446921db1fac3cbbe6696bd8605ab58d8/README.md",
-      "languageEvidenceUrl": "https://huggingface.co/cotheq/ivona-maxim/blob/6142861446921db1fac3cbbe6696bd8605ab58d8/README.md",
-      "trainingLanguageStatus": "author-declared",
-      "compatibilityStatus": "not-tested",
+      "recommendedParams": {
+        "index_rate": 0.75,
+        "protect": 0.33,
+        "f0_method": "rmvpe"
+      },
       "model": {
-        "title": "Максим — русский",
-        "format": "RVC (.pth + .index)",
-        "repo": "cotheq/ivona-maxim",
-        "revision": "6142861446921db1fac3cbbe6696bd8605ab58d8",
-        "upstream": "https://huggingface.co/cotheq/ivona-maxim",
-        "license": "MIT",
-        "licenseUrl": "https://huggingface.co/cotheq/ivona-maxim/blob/6142861446921db1fac3cbbe6696bd8605ab58d8/README.md",
-        "licenseNote": "MIT — заявление автора модели. Автор не связан с Ivona; права и условия исходного синтезатора не подтверждены. Не считать MIT репозитория лицензией на исходную TTS-речь.",
-        "rights": {
-          "status": "unverified",
-          "datasetLicense": null,
-          "evidenceUrl": null,
-          "verifiedAt": null,
-          "sourceUrl": "https://huggingface.co/cotheq/ivona-maxim/blob/6142861446921db1fac3cbbe6696bd8605ab58d8/README.md",
-          "checkedAt": "2026-11-03",
-          "note": "Метаданные источника проверены; законность и права на исходные записи не сертифицированы Vocalis."
-        },
+        "repo": "datasets/Dubina/dota2-wd",
+        "revision": "ea377f04695daf734596d73fd42fe1509f785dde",
+        "upstream": "https://huggingface.co/datasets/Dubina/dota2-wd",
+        "license": "Не указана",
+        "title": "Витч Доктор — русская модель",
+        "format": "RVC v2 (.pth + .index)",
+        "licenseNote": "Неофициальная модель; условия и авторство сохранены в источнике.",
+        "archive": {
+          "path": "wdpack.zip",
+          "size": 54301176,
+          "sha256": "45046eedf0fa26bede0a13df195837b117ee933e07e80db806664aa92624873d",
+          "members": {
+            "pth": "dota1_e250_s1000.pth",
+            "index": "added_IVF44_Flat_nprobe_1_dota1_v2.index"
+          }
+        }
+      }
+    },
+    {
+      "id": "burunov-ru",
+      "name": "Sergey Burunov",
+      "nameRu": "Сергей Бурунов",
+      "franchise": "Кино и дубляж",
+      "category": "film_tv",
+      "description": "Русская модель голоса Сергея Бурунова. RVC v2, 48 кГц.",
+      "language": "ru-RU",
+      "suggestedPitch": -2,
+      "accent": "#38bdf8",
+      "wikipedia": "Sergey_Burunov",
+      "recommendedParams": {
+        "index_rate": 0.75,
+        "protect": 0.33,
+        "f0_method": "rmvpe"
+      },
+      "model": {
+        "repo": "alex123123asdasd/burunov",
+        "revision": "ee1262de6c2504a70af9f5f7cdaf6fc23a4226bc",
+        "upstream": "https://huggingface.co/alex123123asdasd/burunov",
+        "license": "Не указана",
+        "title": "Сергей Бурунов — русская модель",
+        "format": "RVC v2 (.pth + .index)",
+        "licenseNote": "Неофициальная модель; условия и авторство сохранены в источнике.",
+        "files": [
+          {
+            "kind": "index",
+            "path": "model.index",
+            "size": 38934419,
+            "sha256": "e09454d051313107352abe14f560422cb79c5876a4be5d5c07a0ca98dca2b884"
+          },
+          {
+            "kind": "pth",
+            "path": "model.pth",
+            "size": 57585774,
+            "sha256": "e604c7b6b394b0a04d59cb2f56194831f1a70c9432d1825d0eb4f69fb1078ecc"
+          }
+        ]
+      }
+    },
+    {
+      "id": "geralt-kuznetsov-ru",
+      "name": "Geralt of Rivia",
+      "nameRu": "Геральт из Ривии",
+      "franchise": "Ведьмак 3 · Всеволод Кузнецов",
+      "category": "game",
+      "description": "Русская игровая озвучка Всеволода Кузнецова. Модель RVC автора ll2pakll на данных «Ведьмака 3», 30 эпох.",
+      "language": "ru-RU",
+      "suggestedPitch": -3,
+      "accent": "#a8a29e",
+      "wikipedia": "Geralt_of_Rivia",
+      "recommendedParams": {
+        "index_rate": 0.75,
+        "protect": 0.33,
+        "f0_method": "rmvpe"
+      },
+      "model": {
+        "repo": null,
+        "revision": null,
+        "upstream": "https://huggingface.co/Rootreck/so-vits-svc-4.0-ru-The_Witcher_3_Wild_Hunt/discussions/5",
+        "license": "Не указана",
+        "title": "Геральт из Ривии — русская модель",
+        "format": "RVC v2 (.pth + .index)",
+        "licenseNote": "Неофициальная модель; условия и авторство сохранены в источнике.",
         "files": [
           {
             "kind": "pth",
-            "path": "botMaxim_e16_s8672.pth",
-            "url": "https://huggingface.co/cotheq/ivona-maxim/resolve/6142861446921db1fac3cbbe6696bd8605ab58d8/botMaxim_e16_s8672.pth",
-            "size": 55222383,
-            "sha256": "68875827544bf846932f05f6f0109ee7afed83fe419cdc61044722a32dc53658"
+            "path": "TW3_M_Geralt_Rus_30e_33210s.pth",
+            "url": "https://drive.google.com/uc?export=download&id=1RH3kcbPwqtRoyemprhdnvVCKVLLpBIKq",
+            "size": 55234420,
+            "sha256": "d3ca7e818945faed111822facd2e3574303149fcc79d904e09a7913d11bf56ce"
           },
           {
             "kind": "index",
-            "path": "added_IVF2410_Flat_nprobe_1_botMaxim_v2.index",
-            "url": "https://huggingface.co/cotheq/ivona-maxim/resolve/6142861446921db1fac3cbbe6696bd8605ab58d8/added_IVF2410_Flat_nprobe_1_botMaxim_v2.index",
-            "size": 296952179,
-            "sha256": "61298a2ab4970d0599cd02a678dffee87a3e88b3732bd07f3d5f681427f51714"
+            "path": "TW3_M_Geralt_Rus.zip",
+            "url": "https://drive.google.com/uc?export=download&id=1z7l_FdMpCMyd47lAsVMjBjX4pRQscZCn",
+            "size": 80531907,
+            "sha256": "8d22859d5a07afb836d2d05fb0f539198678d10d5a48915c0568e63fa9dd3e66",
+            "member": "added_TW3_M_Geralt_Rus_v2.index"
+          }
+        ]
+      }
+    },
+    {
+      "id": "deadpool-ru",
+      "name": "Deadpool",
+      "nameRu": "Дэдпул",
+      "franchise": "Дэдпул · русский дубляж",
+      "category": "film_tv",
+      "description": "Русский дубляж Дэдпула. Модель RVC v2 с предобучением Snowie V3.",
+      "language": "ru-RU",
+      "suggestedPitch": 0,
+      "accent": "#ef4444",
+      "wikipedia": "Deadpool_(film)",
+      "recommendedParams": {
+        "index_rate": 0.75,
+        "protect": 0.33,
+        "f0_method": "rmvpe"
+      },
+      "model": {
+        "repo": "Player1444/AI.models",
+        "revision": "b5eeeb6691ff99690d81a1a6005b769e8740c0da",
+        "upstream": "https://huggingface.co/Player1444/AI.models",
+        "license": "Не указана",
+        "title": "Дэдпул — русская модель",
+        "format": "RVC v2 (.pth + .index)",
+        "licenseNote": "Неофициальная модель; условия и авторство сохранены в источнике.",
+        "archive": {
+          "path": "Deadpool-rus dub (Trained on Snowie V3).zip",
+          "size": 157045359,
+          "sha256": "0c5c2c9d7a3b608f7ce520cb077fc9b5fecaf0478cfbe203351d68a3fd7b8a96",
+          "members": {
+            "pth": "Deadpool-rus dub (Trained on Snowie V3).pth",
+            "index": "added_IVF826_Flat_nprobe_1_deadpool-rus-dub_v2.index"
+          }
+        }
+      }
+    },
+    {
+      "id": "optimus-prime-ru",
+      "name": "Optimus Prime",
+      "nameRu": "Оптимус Прайм",
+      "franchise": "Трансформеры · русский дубляж",
+      "category": "film_tv",
+      "description": "Русский дубляж Оптимуса Прайма. Модель RVC v2 с предобучением Snowie V3.",
+      "language": "ru-RU",
+      "suggestedPitch": -4,
+      "accent": "#60a5fa",
+      "wikipedia": "Optimus_Prime",
+      "recommendedParams": {
+        "index_rate": 0.75,
+        "protect": 0.33,
+        "f0_method": "rmvpe"
+      },
+      "model": {
+        "repo": "Player1444/AI.models",
+        "revision": "b5eeeb6691ff99690d81a1a6005b769e8740c0da",
+        "upstream": "https://huggingface.co/Player1444/AI.models",
+        "license": "Не указана",
+        "title": "Оптимус Прайм — русская модель",
+        "format": "RVC v2 (.pth + .index)",
+        "licenseNote": "Неофициальная модель; условия и авторство сохранены в источнике.",
+        "archive": {
+          "path": "Optimus Prime-rus-dub (Trained on Snowie V3).zip",
+          "size": 87332659,
+          "sha256": "1092e349610e9dfceadfbfee73513ed12ff05e44da89738202cfc687acd453b7",
+          "members": {
+            "pth": "Optimus Prime-rus-dub (Trained on Snowie V3).pth",
+            "index": "added_IVF260_Flat_nprobe_1_optimus-prime-rus-dub_v2.index"
+          }
+        }
+      }
+    },
+    {
+      "id": "shrek-alt-ru",
+      "name": "Shrek alternative RU",
+      "nameRu": "Шрек · другая модель",
+      "franchise": "Шрек · русский дубляж",
+      "category": "film_tv",
+      "description": "Альтернативные русские веса Seriyr. Без retrieval-индекса; сравните с основным Шреком по кнопке прослушивания.",
+      "language": "ru-RU",
+      "suggestedPitch": -2,
+      "accent": "#a3e635",
+      "wikipedia": "Shrek_(character)",
+      "recommendedParams": {
+        "index_rate": 0.0,
+        "protect": 0.33,
+        "f0_method": "rmvpe"
+      },
+      "model": {
+        "repo": "Seriyr/Shrek_rus",
+        "revision": "1d95a9a0a718691215ddc7f5650afa88c0ba2ca2",
+        "upstream": "https://huggingface.co/Seriyr/Shrek_rus",
+        "license": "Не указана",
+        "title": "Шрек · другая модель — русская модель",
+        "format": "RVC v2 (.pth)",
+        "licenseNote": "Неофициальная модель; условия и авторство сохранены в источнике.",
+        "files": [
+          {
+            "kind": "pth",
+            "path": "Shrek-rus-100.pth",
+            "size": 55224197,
+            "sha256": "4b8c594c9795165a83e2569ba1a400c3d8acd35debabfc7833ca838465883f34"
           }
         ]
       }
     }
   ],
-  "voicePolicy": {
-    "mode": "third-party-source-downloads",
-    "requireCC0": false,
-    "requireDatasetLicense": false,
-    "requireRightsEvidence": false,
-    "decisionDate": "2026-11-03",
-    "note": "По явному решению владельца проекта: единый каталог сторонних моделей, скачивание локально из исходных источников по их условиям. Неизвестные права показываются честно и не выдаются за одобрение. Веса и аудио не включаются в поставку."
+  "retiredVoiceIds": [
+    "spongebob",
+    "rick-sanchez",
+    "darth-vader",
+    "goku",
+    "shrek",
+    "mario",
+    "sonic",
+    "peter-griffin",
+    "optimus-prime",
+    "geralt",
+    "max-lavrov-ru"
+  ],
+  "recoveryMetadata": {
+    "targetVersion": "0.1.5",
+    "status": "reconstructed-build-not-byte-identical",
+    "provenance": [
+      "Saved original tool-call scripts 0019,0034,0045,0057,0060,0083,0099",
+      "Saved output JSON objects at session zero-based lines 74,417,496",
+      "prepublic-catalog-evidence.json",
+      "Existing ready factory manifests; no model weights changed",
+      "HF metadata at known old revisions only: hoffmaninai/shrekrus a4961562e97afa237098d7ae7d74ce8354d294e0 and niobures/RVC-Models 4d174cf0b72edfcdba74c8510bdc894a2dd53b3c"
+    ],
+    "unrecoveredFields": [],
+    "notes": [
+      "No historical command was executed. Unknown metadata is null, not guessed.",
+      "The first three original profiles had no recommendedParams; absence is intentional.",
+      "Object-key order and JSON formatting are reconstructed.",
+      "Archive SHA-256 and extracted .pth/.index SHA-256 are different and are not interchangeable.",
+      "Previously missing download declarations recovered by verifying archive payloads against historical installed weights; fresh pins are recorded separately."
+    ],
+    "installedFiles": {
+      "spongebob-ru": {
+        "pth": {
+          "name": "model.pth",
+          "sha256": "d17a1c81fb0f5b380089836e81a3539f8f24a0040d01d83d28da091ce6be4f99",
+          "size": 55224197
+        },
+        "index": {
+          "name": "model.index",
+          "sha256": "24d3bb6a94f70f5587fc853cbbeb3925431b87d6e00df6df236e64fb3ca383d6",
+          "size": 39612019
+        }
+      },
+      "shrek-ru": {
+        "pth": {
+          "name": "model.pth",
+          "sha256": "e83658693de6f0f073271ece2c804eb67e709479fcaea9e5d0a529cb42537884",
+          "size": 55223738
+        },
+        "index": {
+          "name": "model.index",
+          "sha256": "69e887362b5899c26dfdb4678f49261e16d57937a3903cc3d88c6bb444f6e8b0",
+          "size": 12421779
+        }
+      },
+      "sonic-ru": {
+        "pth": {
+          "name": "model.pth",
+          "sha256": "d862918f90cca4fdfebed487a8b1e66d15d0e75e9e20f23f363d0f44d6784889",
+          "size": 55228328
+        },
+        "index": {
+          "name": "model.index",
+          "sha256": "48306cab79c14f8e915cb8a5064015a4f5a8fcc4574998fe46cc418e0fafea80",
+          "size": 2519579
+        }
+      },
+      "pudge-ru": {
+        "pth": {
+          "name": "model.pth",
+          "sha256": "208d527ac15cc349645ce0cee7724c2ac3725bccbe5aa83dbe4102a7e0cacd4c",
+          "size": 55193241
+        },
+        "index": {
+          "name": "model.index",
+          "sha256": "ec099340e85917ee0d32f25ac1ae8e52df40c16162d6c285dd65428b98352aef",
+          "size": 53459699
+        }
+      },
+      "invoker-ru": {
+        "pth": {
+          "name": "model.pth",
+          "sha256": "9b600d1e5eb7ed9aa79caa3fa65ebab51fa4152cfa0278e335047efd26ad95c6",
+          "size": 55224197
+        },
+        "index": {
+          "name": "model.index",
+          "sha256": "a0b4f57d2849b1f50b0ce8f5ad660b5b3dffa301dd52a7d01af763fa0229674c",
+          "size": 78937459
+        }
+      },
+      "treant-ru": {
+        "pth": {
+          "name": "model.pth",
+          "sha256": "c7922dfbc5a25dcb9361504119541811586a02422bc6e02083fcaef7720c6f70",
+          "size": 55222703
+        },
+        "index": {
+          "name": "model.index",
+          "sha256": "d8385ad8ee93e19b4bb1e4e61d569a3e28bd9e0d79d4a2cba0f2a4def2133569",
+          "size": 202155939
+        }
+      },
+      "witch-doctor-ru": {
+        "pth": {
+          "name": "model.pth",
+          "sha256": "27ba2a7afe05b0021237fe1c33e757d28e4ffe29c5cceb6843768fbfaf467519",
+          "size": 55227861
+        },
+        "index": {
+          "name": "model.index",
+          "sha256": "96f3e6b10ca3fb67ca9a3563e43cb818481647712c694b079b9bd826ac2bea32",
+          "size": 5424019
+        }
+      },
+      "burunov-ru": {
+        "pth": {
+          "name": "model.pth",
+          "sha256": "e604c7b6b394b0a04d59cb2f56194831f1a70c9432d1825d0eb4f69fb1078ecc",
+          "size": 57585774
+        },
+        "index": {
+          "name": "model.index",
+          "sha256": "e09454d051313107352abe14f560422cb79c5876a4be5d5c07a0ca98dca2b884",
+          "size": 38934419
+        }
+      },
+      "geralt-kuznetsov-ru": {
+        "pth": {
+          "name": "model.pth",
+          "sha256": "d3ca7e818945faed111822facd2e3574303149fcc79d904e09a7913d11bf56ce",
+          "size": 55234420
+        },
+        "index": {
+          "name": "model.index",
+          "sha256": "102e6667aeb5fe10c0f93eb916b1c8e0457b529da6fd03b803a89584f745243e",
+          "size": 31588619
+        }
+      },
+      "deadpool-ru": {
+        "pth": {
+          "name": "model.pth",
+          "sha256": "f10dc408020901977088ec167635f686047e86a4c4fb103a8f74e437255fbd86",
+          "size": 55223136
+        },
+        "index": {
+          "name": "model.index",
+          "sha256": "e6b119dc32411114d961728eb6e78129ad2a933046834203b2ff658a9c93fd41",
+          "size": 101821859
+        }
+      },
+      "optimus-prime-ru": {
+        "pth": {
+          "name": "model.pth",
+          "sha256": "1c44315068dc4524729215f29576a25ce0e01ed545a7e6d5245be95725ea96a5",
+          "size": 55223136
+        },
+        "index": {
+          "name": "model.index",
+          "sha256": "8c33a23af9bf9ad8f390f27ef37875b4951bbf69816d578342004f9d624511ad",
+          "size": 32109139
+        }
+      },
+      "shrek-alt-ru": {
+        "pth": {
+          "name": "model.pth",
+          "sha256": "4b8c594c9795165a83e2569ba1a400c3d8acd35debabfc7833ca838465883f34",
+          "size": 55224197
+        }
+      }
+    },
+    "downloadMetadataVerification": {
+      "checkedAt": "2026-11-03T15:29:36.664678+00:00",
+      "method": "Reconstructed source archive pins verified by SHA-256 of extracted payloads against original installed model files; weights not replaced. These are reconstruction-time source pins, not a claim of exact historical JSON metadata.",
+      "archives": [
+        {
+          "voice": "witch-doctor-ru",
+          "revision": "ea377f04695daf734596d73fd42fe1509f785dde",
+          "archiveSha256": "45046eedf0fa26bede0a13df195837b117ee933e07e80db806664aa92624873d",
+          "url": "https://huggingface.co/datasets/Dubina/dota2-wd/resolve/ea377f04695daf734596d73fd42fe1509f785dde/wdpack.zip",
+          "payloadsMatchInstalledHistoricalWeights": true,
+          "members": {
+            "pth": {
+              "member": "dota1_e250_s1000.pth",
+              "sha256": "27ba2a7afe05b0021237fe1c33e757d28e4ffe29c5cceb6843768fbfaf467519"
+            },
+            "index": {
+              "member": "added_IVF44_Flat_nprobe_1_dota1_v2.index",
+              "sha256": "96f3e6b10ca3fb67ca9a3563e43cb818481647712c694b079b9bd826ac2bea32"
+            }
+          }
+        },
+        {
+          "voice": "geralt-kuznetsov-ru",
+          "revision": null,
+          "archiveSha256": "8d22859d5a07afb836d2d05fb0f539198678d10d5a48915c0568e63fa9dd3e66",
+          "url": "https://drive.google.com/uc?export=download&id=1z7l_FdMpCMyd47lAsVMjBjX4pRQscZCn",
+          "payloadsMatchInstalledHistoricalWeights": true,
+          "members": {
+            "index": {
+              "member": "added_TW3_M_Geralt_Rus_v2.index",
+              "sha256": "102e6667aeb5fe10c0f93eb916b1c8e0457b529da6fd03b803a89584f745243e"
+            }
+          }
+        },
+        {
+          "voice": "deadpool-ru",
+          "revision": "b5eeeb6691ff99690d81a1a6005b769e8740c0da",
+          "archiveSha256": "0c5c2c9d7a3b608f7ce520cb077fc9b5fecaf0478cfbe203351d68a3fd7b8a96",
+          "url": "https://huggingface.co/Player1444/AI.models/resolve/b5eeeb6691ff99690d81a1a6005b769e8740c0da/Deadpool-rus%20dub%20%28Trained%20on%20Snowie%20V3%29.zip",
+          "payloadsMatchInstalledHistoricalWeights": true,
+          "members": {
+            "pth": {
+              "member": "Deadpool-rus dub (Trained on Snowie V3).pth",
+              "sha256": "f10dc408020901977088ec167635f686047e86a4c4fb103a8f74e437255fbd86"
+            },
+            "index": {
+              "member": "added_IVF826_Flat_nprobe_1_deadpool-rus-dub_v2.index",
+              "sha256": "e6b119dc32411114d961728eb6e78129ad2a933046834203b2ff658a9c93fd41"
+            }
+          }
+        },
+        {
+          "voice": "optimus-prime-ru",
+          "revision": "b5eeeb6691ff99690d81a1a6005b769e8740c0da",
+          "archiveSha256": "1092e349610e9dfceadfbfee73513ed12ff05e44da89738202cfc687acd453b7",
+          "url": "https://huggingface.co/Player1444/AI.models/resolve/b5eeeb6691ff99690d81a1a6005b769e8740c0da/Optimus%20Prime-rus-dub%20%28Trained%20on%20Snowie%20V3%29.zip",
+          "payloadsMatchInstalledHistoricalWeights": true,
+          "members": {
+            "pth": {
+              "member": "Optimus Prime-rus-dub (Trained on Snowie V3).pth",
+              "sha256": "1c44315068dc4524729215f29576a25ce0e01ed545a7e6d5245be95725ea96a5"
+            },
+            "index": {
+              "member": "added_IVF260_Flat_nprobe_1_optimus-prime-rus-dub_v2.index",
+              "sha256": "8c33a23af9bf9ad8f390f27ef37875b4951bbf69816d578342004f9d624511ad"
+            }
+          }
+        }
+      ]
+    }
   }
 }

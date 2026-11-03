@@ -44,7 +44,7 @@ class DownloadTests(unittest.TestCase):
             archive=base/'source.zip'
             with zipfile.ZipFile(archive,'w') as z:
                 z.writestr('nested/voice.index',b'index-data')
-                z.writestr('unselected.py',b'must not be extracted')
+                z.writestr('../unselected.py',b'must not be extracted')
             with patch.object(mod,'VOICES_DIR',voices),patch.object(mod,'CACHE_DIR',cache):
                 manager=mod.ModelManager()
                 def download(url,dest,*_):dest.write_bytes(b'weights' if url.endswith('weights') else archive.read_bytes())

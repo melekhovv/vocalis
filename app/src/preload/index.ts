@@ -8,13 +8,7 @@ function on<T>(channel: string, cb: (data: T) => void) {
 
 const api = {
   engineInfo: () => ipcRenderer.invoke('engine:info'),
-  setupEngine: (profile?: 'nvidia' | 'amd' | 'laptop' | 'cpu') => ipcRenderer.invoke('engine:setup', profile),
-  cancelSetup: () => ipcRenderer.invoke('engine:cancelSetup'),
-  openCableSetup: () => ipcRenderer.invoke('setup:cable'),
-  cableStatus: () => ipcRenderer.invoke('cable:status'),
-  setupCable: () => ipcRenderer.invoke('cable:setup'),
-  cancelCableSetup: () => ipcRenderer.invoke('cable:cancel'),
-  onCableSetup: (cb: (info: unknown) => void) => on('cable:state', cb),
+  setupEngine: () => ipcRenderer.invoke('engine:setup'),
   restartEngine: () => ipcRenderer.invoke('engine:restart'),
   onEngineState: (cb: (info: unknown) => void) => on('engine:state', cb),
   onEngineLog: (cb: (line: string) => void) => on('engine:log', cb),

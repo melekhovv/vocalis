@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { RefreshCw, Volume2, Mic, CheckCircle2, CircleAlert, Loader2, Cpu, Zap, FolderOpen } from 'lucide-react'
+import { RefreshCw, Volume2, Mic, CheckCircle2, CircleAlert, ExternalLink, Loader2, Cpu, Zap, FolderOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { ParamSlider, ParamSwitch, setParam } from '@/components/param-controls'
-import { CableSetup } from '@/components/cable-setup'
 import { HotkeyRecorder, KeyRecorder } from '@/components/hotkey-recorder'
 import { useStore } from '@/lib/store'
 import { api, type SystemInfo } from '@/lib/api'
@@ -25,8 +25,8 @@ export function SettingsPage({ tab, onTab }: { tab: string; onTab: (t: string) =
         <h1 className="text-2xl font-semibold tracking-tight">Настройки</h1>
       </header>
       <Tabs value={tab} onValueChange={onTab} className="flex min-h-0 flex-1 flex-col">
-        <div className="mx-8 min-w-0">
-          <TabsList className="grid w-full grid-cols-3 gap-1 group-data-[orientation=horizontal]/tabs:h-auto min-[1280px]:grid-cols-6 [&>button]:h-8 [&>button]:min-w-0 [&>button]:text-xs">
+        <div className="px-8">
+          <TabsList>
             <TabsTrigger value="devices">Аудиоустройства</TabsTrigger>
             <TabsTrigger value="virtual">Виртуальный микрофон</TabsTrigger>
             <TabsTrigger value="processing">Обработка</TabsTrigger>
@@ -35,8 +35,8 @@ export function SettingsPage({ tab, onTab }: { tab: string; onTab: (t: string) =
             <TabsTrigger value="app">Приложение</TabsTrigger>
           </TabsList>
         </div>
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
-          <div className="w-full px-8 pb-10">
+        <ScrollArea className="mt-4 min-h-0 flex-1">
+          <div className="max-w-3xl px-8 pb-10">
             <TabsContent value="devices"><DevicesTab /></TabsContent>
             <TabsContent value="virtual"><VirtualTab /></TabsContent>
             <TabsContent value="processing"><ProcessingTab /></TabsContent>
@@ -44,7 +44,7 @@ export function SettingsPage({ tab, onTab }: { tab: string; onTab: (t: string) =
             <TabsContent value="hotkeys"><HotkeysTab /></TabsContent>
             <TabsContent value="app"><AppTab /></TabsContent>
           </div>
-        </div>
+        </ScrollArea>
       </Tabs>
     </div>
   )
@@ -64,7 +64,7 @@ function Section({ title, description, children }: { title: string; description?
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+    <div className="flex items-center justify-between gap-6">
       <div className="min-w-0">
         <div className="text-sm">{label}</div>
         {hint && <div className="mt-0.5 text-xs text-muted-foreground">{hint}</div>}
@@ -95,7 +95,7 @@ function useDevices() {
 
 function DeviceSelect({ list, value, onChange, placeholder }: { list: AudioDevice[]; value: number | null; onChange: (id: number) => void; placeholder: string }) {
   return (
-    <Select value={list.some((d) => d.id === value) ? String(value) : ''} onValueChange={(v) => onChange(Number(v))}>
+    <Select value={value === null ? undefined : String(value)} onValueChange={(v) => onChange(Number(v))}>
       <SelectTrigger className="w-80"><SelectValue placeholder={placeholder} /></SelectTrigger>
       <SelectContent>
         {list.map((d) => (
@@ -146,7 +146,7 @@ function DevicesTab() {
     }
   }
 
-  if (!devs) return <div className="space-y-3 text-sm text-muted-foreground"><p role="status">{loading ? 'Загружаем устройства…' : 'Не удалось загрузить устройства.'}</p><Button variant="outline" disabled={loading} onClick={() => refresh()}>Повторить</Button></div>
+  if (!devs) return <Loader2 className="size-5 animate-spin text-muted-foreground" />
   return (
     <div className="space-y-5">
       <Section
@@ -164,15 +164,15 @@ function DevicesTab() {
         <Row label="Вывод преобразованного голоса" hint="Выберите «CABLE Input» — его слушают Discord и игры">
           <div className="flex gap-2">
             <DeviceSelect list={devs.outputs} value={d.output} onChange={(id) => set({ output: id })} placeholder="Выберите устройство" />
-            <Button variant="outline" size="icon" onClick={() => testOut(d.output, 'out')} disabled={running || testing !== null || d.output === null} title="Тестовый тон (при остановленном преобразовании)">
+            <Button variant="outline" size="icon" onClick={() => testOut(d.output, 'out')} disabled={testing !== null} title="Тестовый тон">
               {testing === 'out' ? <Loader2 className="animate-spin" /> : <Volume2 />}
             </Button>
           </div>
         </Row>
         <Row label="Устройство мониторинга" hint="Наушники, в которых вы слышите себя">
           <div className="flex gap-2">
-            <DeviceSelect list={devs.outputs.filter((device) => !device.isVirtualCable && device.id !== d.output)} value={d.monitor} onChange={(id) => set({ monitor: id })} placeholder="Выберите наушники" />
-            <Button variant="outline" size="icon" onClick={() => testOut(d.monitor, 'mon')} disabled={running || testing !== null || d.monitor === null} title="Тестовый тон (при остановленном преобразовании)">
+            <DeviceSelect list={devs.outputs} value={d.monitor} onChange={(id) => set({ monitor: id })} placeholder="Выберите наушники" />
+            <Button variant="outline" size="icon" onClick={() => testOut(d.monitor, 'mon')} disabled={testing !== null} title="Тестовый тон">
               {testing === 'mon' ? <Loader2 className="animate-spin" /> : <Volume2 />}
             </Button>
           </div>
@@ -197,20 +197,36 @@ function VirtualTab() {
   const { devs, loading, refresh } = useDevices()
   const running = status!.engine.state === 'running' || status!.engine.state === 'loading'
   const cableIn = devs?.outputs.find((o) => o.isVirtualCable)
+  const cableOut = devs?.inputs.find((o) => o.isVirtualCable)
   const routed = cableIn && status!.engine.devices.output === cableIn.id
 
   return (
     <div className="space-y-5">
-      <CableSetup />
-      <Section title="Маршрутизация" description="После установки и перезагрузки Windows выберите виртуальный кабель как вывод Vocalis.">
-        {devs ? <StatusLine ok={!!routed} okText="Vocalis выводит голос в виртуальный кабель" badText="Вывод Vocalis ещё не направлен в «CABLE Input»" /> : <p className="text-sm text-muted-foreground">Получаем список аудиоустройств…</p>}
-        <div className="flex flex-wrap gap-2">
+      <Section title="Состояние" description="Vocalis не создаёт виртуальный микрофон сам — для этого нужен драйвер виртуального аудиокабеля. Мы рекомендуем бесплатный VB-CABLE от VB-Audio.">
+        <StatusLine ok={!!cableIn} okText={`Найден драйвер: ${cableIn?.name}`} badText="VB-CABLE не найден — установите драйвер по инструкции ниже" />
+        <StatusLine ok={!!cableOut} okText={`Виртуальный микрофон для приложений: ${cableOut?.name}`} badText="Устройство записи «CABLE Output» не обнаружено" />
+        <StatusLine ok={!!routed} okText="Vocalis выводит голос в виртуальный кабель" badText="Вывод Vocalis ещё не направлен в «CABLE Input»" />
+        <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => refresh(true)} disabled={loading || running}>
-            <RefreshCw className={loading ? 'animate-spin' : ''} /> Обновить аудиоустройства
+            <RefreshCw className={loading ? 'animate-spin' : ''} /> Проверить снова
           </Button>
           {cableIn && !routed && (
-            <Button size="sm" onClick={() => api.setDevices({ output: cableIn.id }).then(() => toast.success('Вывод направлен в CABLE Input')).catch((e) => toast.error(e.message))}>Направить вывод в CABLE Input</Button>
+            <Button size="sm" onClick={() => api.setDevices({ output: cableIn.id }).then(() => toast.success('Вывод направлен в CABLE Input'))}>
+              Направить вывод в CABLE Input
+            </Button>
           )}
+        </div>
+      </Section>
+      <Section title="1. Установка VB-CABLE">
+        <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground marker:text-foreground">
+          <li>Скачайте <b className="text-foreground">VBCABLE_Driver_Pack</b> с официального сайта VB-Audio (бесплатно, donationware).</li>
+          <li>Распакуйте архив, щёлкните правой кнопкой по <code className="rounded bg-muted px-1">VBCABLE_Setup_x64.exe</code> → «Запуск от имени администратора» → Install Driver.</li>
+          <li>Перезагрузите компьютер, затем нажмите «Проверить снова» выше.</li>
+        </ol>
+        <div className="flex gap-2">
+          <Button variant="secondary" size="sm" onClick={() => bridge.openExternal('https://vb-audio.com/Cable/')}>
+            <ExternalLink /> vb-audio.com/Cable
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => bridge.openSoundSettings()}>Параметры звука Windows</Button>
         </div>
       </Section>
@@ -218,7 +234,7 @@ function VirtualTab() {
         <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-3 text-center text-xs">
           <Node title="Ваш микрофон" sub="физическое устройство" />
           <Arrow />
-          <Node title="Vocalis" sub="локальное преобразование RVC" accent />
+          <Node title="Vocalis" sub="RVC на вашем GPU" accent />
           <Arrow />
           <Node title="CABLE Input" sub="вывод Vocalis" />
         </div>
@@ -308,9 +324,9 @@ function PerformanceTab() {
   return (
     <div className="space-y-5">
       <Section title="Режим качества / производительности" description="Размер блока определяет основную часть задержки. Нейросеть должна успевать обработать блок быстрее, чем он длится.">
-        <ToggleGroup type="single" variant="outline" disabled={e.state === 'loading'} aria-label="Режим качества" value={e.preset} onValueChange={(v) => v && api.preset(v as Preset).catch((e) => toast.error(e.message))} className="grid w-full grid-cols-3 items-stretch">
+        <ToggleGroup type="single" variant="outline" value={e.preset} onValueChange={(v) => v && api.preset(v as Preset)} className="w-full">
           {(Object.keys(PRESET_LABELS) as Preset[]).map((k) => (
-            <ToggleGroupItem key={k} value={k} className="h-auto flex-1 basis-0 flex-col items-start justify-start gap-1 px-3 py-3 text-left whitespace-normal">
+            <ToggleGroupItem key={k} value={k} className="h-auto flex-1 flex-col items-start gap-0.5 px-3 py-2.5 text-left">
               <span className="text-sm font-medium">{PRESET_LABELS[k]}</span>
               <span className="text-[11px] font-normal whitespace-normal text-muted-foreground">{desc[k]}</span>
             </ToggleGroupItem>
@@ -319,8 +335,8 @@ function PerformanceTab() {
       </Section>
       <Section title="Аппаратное ускорение">
         <Row label="Вычислительное устройство" hint={sys?.hardware.cuda ? `Обнаружено: ${sys.hardware.gpu} · CUDA ${sys.hardware.cudaVersion}` : 'CUDA-совместимая видеокарта NVIDIA не обнаружена'}>
-          <ToggleGroup type="single" variant="outline" disabled={e.state === 'loading'} aria-label="Вычислительное устройство" value={e.compute} onValueChange={(v) => v && api.compute(v as 'auto' | 'cpu').catch((e) => toast.error(e.message))}>
-            <ToggleGroupItem value="auto" className="px-3 text-xs"><Zap className="size-3.5" /> Авто (CUDA / CPU)</ToggleGroupItem>
+          <ToggleGroup type="single" variant="outline" value={e.compute} onValueChange={(v) => v && api.compute(v as 'auto' | 'cpu')}>
+            <ToggleGroupItem value="auto" className="px-3 text-xs"><Zap className="size-3.5" /> GPU (CUDA)</ToggleGroupItem>
             <ToggleGroupItem value="cpu" className="px-3 text-xs"><Cpu className="size-3.5" /> Только CPU</ToggleGroupItem>
           </ToggleGroup>
         </Row>

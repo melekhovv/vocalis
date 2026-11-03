@@ -47,23 +47,22 @@ export function LibraryPage({ go }: { go: (p: Page) => void }) {
   return (
     <div className="flex h-full flex-col">
       <header className="space-y-4 px-8 pb-4">
-        <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Библиотека голосов</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {voices.filter((v) => v.status === 'ready').length} из {voices.length} моделей загружено. Нажмите кнопку прослушивания на карточке, чтобы услышать пример.
+              {voices.filter((v) => v.status === 'ready').length} из {voices.length} моделей загружено. Только русская озвучка. Нажмите ▶ на карточке, чтобы услышать пример.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2"><Button variant="secondary" size="sm" onClick={() => go('catalog')}>Каталог голосов</Button><Button variant="outline" size="sm" onClick={() => go('models')}>Менеджер моделей</Button></div>
+          <Button variant="outline" size="sm" onClick={() => go('models')}>Менеджер моделей</Button>
         </div>
-        <p className="text-xs text-muted-foreground">Пример: локальный русский системный голос Windows → выбранная RVC-модель. Синтетическая речь помогает сравнить тембр; качество микрофона может отличаться. Перед прослушиванием остановите преобразование.</p>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-60 flex-1">
+        <div className="flex items-center gap-3">
+          <div className="relative w-72">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск по персонажу или франшизе" className="pl-8" />
           </div>
-          <Tabs className="order-last w-full min-w-0 overflow-x-auto" value={cat} onValueChange={(v) => setCat(v as typeof cat)}>
-            <TabsList className="min-w-max">
+          <Tabs value={cat} onValueChange={(v) => setCat(v as typeof cat)}>
+            <TabsList>
               <TabsTrigger value="all">Все</TabsTrigger>
               <TabsTrigger value="fav"><Star className="size-3.5" /> Избранное</TabsTrigger>
               {categories.map((c) => (
@@ -126,8 +125,7 @@ function VoiceCard({ voice: v }: { voice: Voice }) {
             <button
               onClick={() => toggleFavorite(v.id)}
               className={cn('-mt-0.5 -mr-1 rounded p-1 text-muted-foreground transition-colors hover:text-foreground', fav && 'text-warn hover:text-warn')}
-              aria-label={fav ? `Убрать из избранного: ${v.nameRu}` : `В избранное: ${v.nameRu}`}
-              aria-pressed={!!fav}
+              aria-label="В избранное"
             >
               <Star className="size-4" fill={fav ? 'currentColor' : 'none'} />
             </button>
@@ -173,7 +171,7 @@ function VoiceCard({ voice: v }: { voice: Voice }) {
       <div className="mt-4 flex gap-2">
         {v.status === 'ready' ? (
           <>
-            <Button className="flex-1" size="sm" variant={active ? 'secondary' : 'default'} disabled={active || status!.engine.state === 'loading'} onClick={() => selectVoice(v.id)}>
+            <Button className="flex-1" size="sm" variant={active ? 'secondary' : 'default'} disabled={active} onClick={() => selectVoice(v.id)}>
               {active ? <><Check /> Выбран</> : 'Выбрать голос'}
             </Button>
             <Tooltip>
@@ -188,7 +186,7 @@ function VoiceCard({ voice: v }: { voice: Voice }) {
             </Tooltip>
           </>
         ) : downloading ? (
-          <Button className="flex-1" size="sm" variant="outline" onClick={() => api.cancel(v.id).catch((e) => toast.error(e.message))}>
+          <Button className="flex-1" size="sm" variant="outline" onClick={() => api.cancel(v.id)}>
             <X /> Отменить
           </Button>
         ) : (

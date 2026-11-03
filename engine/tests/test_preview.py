@@ -23,48 +23,42 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
         api.engine.params['pitch']=12
         api.engine.compute='cpu'
 
-    async def test_preview_requires_stopped_engine(self):
-        api.engine.state = 'running'
-        with patch.object(api.models, 'list_voices', return_value=[{'id': 'custom-russian'}]):
-            with self.assertRaises(HTTPException) as exc:
-                await api.preview_convert({'voiceId': 'custom-russian'})
-        self.assertEqual(exc.exception.status_code, 400)
+    async def test_only_russian_factory_voices(self):
+        voices=api.models.catalog['voices']
+        self.assertTrue({'shrek-ru','sonic-ru','spongebob-ru','pudge-ru','invoker-ru','treant-ru','witch-doctor-ru','geralt-kuznetsov-ru','burunov-ru','deadpool-ru','optimus-prime-ru','shrek-alt-ru'}.issubset({v['id'] for v in voices}))
+        self.assertTrue(all(v['language']=='ru-RU' for v in voices))
+        self.assertNotIn('max-lavrov-ru', {v['id'] for v in voices})
 
-    async def test_local_system_source_is_cached_only_within_engine_session(self):
-        api._demo_ready = False
-        calls = []
-        def synthesize(*args, **kwargs):
-            calls.append(kwargs)
-            sf.write(kwargs['env']['VOCALIS_DEMO_OUTPUT'], np.ones(4800, dtype=np.float32) * .1, 48000)
-        with patch.object(api.sys, 'platform', 'win32'), patch.object(api.subprocess, 'run', side_effect=synthesize):
-            first = api.demo_clip()
-            second = api.demo_clip()
-        self.assertEqual(len(calls), 1)
-        self.assertEqual(calls[0]['timeout'], 45)
-        self.assertEqual(calls[0]['env']['VOCALIS_DEMO_TEXT'], api.DEMO_TEXT)
-        np.testing.assert_array_equal(first, second)
-        api._demo_ready = False
+    async def test_bundled_samples_are_short_finite_non_silent_audio(self):
+        for v in api.models.list_voices():
+            p=ROOT/'assets'/'previews'/f"{v['id']}.wav"
+            x,sr=sf.read(p)
+            self.assertTrue(3<len(x)/sr<10)
+            self.assertEqual(sr,48000)
+            self.assertTrue(np.isfinite(x).all())
+            self.assertGreater(np.sqrt(np.mean(x*x)),.005)
 
-    async def test_system_voice_failure_is_actionable(self):
-        api._demo_ready = False
-        with patch.object(api.sys, 'platform', 'win32'), patch.object(api.subprocess, 'run', side_effect=api.subprocess.TimeoutExpired('powershell', 45)):
-            with self.assertRaises(HTTPException) as exc:
-                api.demo_clip()
-        self.assertEqual(exc.exception.status_code, 503)
-        self.assertIn('русский системный голос', exc.exception.detail)
+    async def test_bundled_preview_plays_while_engine_running_without_gpu(self):
+        api.engine.state='running'
+        with patch.object(api.audio_mod,'convert_clip',side_effect=AssertionError('No inference needed')):
+            result=await api.preview_convert({'voiceId':'shrek-ru'})
+        self.assertEqual(result['url'],'/preview/audio/shrek-ru.wav')
+        self.assertEqual(result['seconds'],0)
+        self.assertIn('приключениям',result['text'])
+        self.assertEqual(Path(api.preview_audio('shrek-ru.wav').path),ROOT/'assets'/'previews'/'shrek-ru.wav')
 
     async def test_fallback_ignores_old_microphone_and_selected_voice_settings(self):
         # Simulate a custom profile without a bundled demo.
-        demo=np.ones(4800, dtype=np.float32) * .1
+        demo=api.demo_clip()
         sf.write(api.PREVIEW_DIR/'original.wav',np.zeros(48000),48000)
         seen={}
         def convert(models,vid,clip,params,preset,compute):
             seen.update(params=params,preset=preset,compute=compute)
             np.testing.assert_allclose(clip,demo)
             return clip
-        with patch.object(api, 'demo_clip', return_value=demo), patch.object(api.models,'list_voices',return_value=[{'id':'custom-russian','suggestedPitch':-2}]), patch.object(api.models,'base_assets_status',return_value={'ready':True}), patch.object(api.models,'voice_paths',return_value=('model.pth','model.index')), patch.object(api.audio_mod,'convert_clip',side_effect=convert):
+        with patch.object(api.models,'list_voices',return_value=[{'id':'custom-russian','suggestedPitch':-2}]), patch.object(api.models,'base_assets_status',return_value={'ready':True}), patch.object(api.models,'voice_paths',return_value=('model.pth','model.index')), patch.object(api.audio_mod,'convert_clip',side_effect=convert):
             await api.preview_convert({'voiceId':'custom-russian','params':{'pitch':24}})
-        self.assertEqual(seen['params'],{'pitch':-2,'index_rate':.5,'protect':.33,'f0_method':'rmvpe','clarity_mode':False,'volume_envelope':1.})
+        self.assertEqual(seen['params'],{'pitch':-2,'index_rate':.75,'protect':.33})
         self.assertEqual(seen['compute'],'cpu')
 
     async def test_removed_or_unknown_profile_cannot_be_previewed(self):
@@ -83,13 +77,13 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(HTTPException) as e: api.start()
             self.assertEqual(e.exception.status_code,409)
 
-    async def test_local_recovery_preserves_existing_model_files(self):
+    async def test_migration_deletes_only_retired_factory_profile(self):
         retired=VOICES_DIR/'goku';retired.mkdir(parents=True,exist_ok=True)
         (retired/'model.pth').write_bytes(b'retired fixture')
         custom=VOICES_DIR/'custom-keep';custom.mkdir(exist_ok=True)
         (custom/'keep.txt').write_text('keep')
         ModelManager()
-        self.assertTrue(retired.exists())
+        self.assertFalse(retired.exists())
         self.assertTrue((custom/'keep.txt').exists())
 
     async def test_profile_selection_applies_timbre_settings_without_touching_devices(self):

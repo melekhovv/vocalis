@@ -1,9 +1,15 @@
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
 import { spawn, ChildProcess } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { CableSetup } from './cable-setup'
+
+// Keep automated screenshot runs separate from the user's open application.
+if (process.env.VOCALIS_SHOTS) {
+  const qaUserData = join(resolve(process.env.VOCALIS_SHOTS), 'user-data')
+  mkdirSync(qaUserData, { recursive: true })
+  app.setPath('userData', qaUserData)
+}
 
 // ------------------------------------------------------------------ settings
 export type HotkeyAction = 'toggle' | 'bypass' | 'next' | 'prev' | 'monitor'
@@ -39,84 +45,39 @@ const DEFAULT_SETTINGS: AppSettings = {
 const settingsFile = () => join(app.getPath('userData'), 'settings.json')
 let settings: AppSettings = DEFAULT_SETTINGS
 
-function normalizeSettings(raw: unknown): AppSettings {
-  const data = raw && typeof raw === 'object' ? raw as Partial<AppSettings> : {}
-  const result: AppSettings = {
-    ...DEFAULT_SETTINGS,
-    hotkeys: { ...DEFAULT_SETTINGS.hotkeys },
-    favorites: [], recent: [],
-  }
-  for (const key of ['closeToTray', 'autostart', 'startMinimized', 'acceptedNotice', 'quickSwitchFavoritesOnly'] as const) {
-    if (typeof data[key] === 'boolean') result[key] = data[key]
-  }
-  for (const key of ['favorites', 'recent'] as const) {
-    if (Array.isArray(data[key])) result[key] = [...new Set(data[key].filter((id) => typeof id === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(id)))]
-  }
-  result.recent = result.recent.slice(0, 6)
-  for (const key of Object.keys(result.hotkeys) as HotkeyAction[]) {
-    if (typeof data.hotkeys?.[key] === 'string') result.hotkeys[key] = data.hotkeys[key]
-  }
-  return result
-}
-
 function loadSettings() {
   try {
     const raw = JSON.parse(readFileSync(settingsFile(), 'utf-8'))
-    settings = normalizeSettings(raw)
+    settings = { ...DEFAULT_SETTINGS, ...raw, hotkeys: { ...DEFAULT_SETTINGS.hotkeys, ...(raw.hotkeys || {}) } }
   } catch {
-    settings = normalizeSettings({})
+    settings = { ...DEFAULT_SETTINGS }
   }
 }
 
 function saveSettings() {
   mkdirSync(app.getPath('userData'), { recursive: true })
-  const pending = settingsFile() + '.tmp'
-  writeFileSync(pending, JSON.stringify(settings, null, 2))
-  renameSync(pending, settingsFile())
+  writeFileSync(settingsFile(), JSON.stringify(settings, null, 2))
 }
 
 // ------------------------------------------------------------------ engine process
 type EngineState = 'needs-setup' | 'installing' | 'starting' | 'ready' | 'crashed'
-type SetupProfile = 'nvidia' | 'amd' | 'laptop' | 'cpu'
-interface SetupProgress {
-  profile: SetupProfile
-  stage: 'preparing' | 'downloading' | 'installing' | 'verifying' | 'complete' | 'cancelled' | 'error'
-  detail: string
-  error?: string
-}
 
 const isDev = !app.isPackaged
 const engineDir = isDev ? resolve(__dirname, '../../../engine') : join(process.resourcesPath, 'engine')
 const dataRoot = join(process.env.LOCALAPPDATA || app.getPath('appData'), 'Vocalis')
 const runtimeEnv = isDev ? join(engineDir, '.venv') : join(dataRoot, 'runtime', 'venv')
 const pythonExe = join(runtimeEnv, 'Scripts', 'python.exe')
-// Only installations touched by setup are marked; existing working environments
-// from earlier releases remain usable without migration.
-const incompleteSetupFile = runtimeEnv + '.setup-incomplete'
 const uvExe = isDev
-  ? resolve(engineDir, '../app/build/bin/uv.exe')
+  ? join(process.env.APPDATA || '', 'Python', 'Python314', 'Scripts', 'uv.exe')
   : join(process.resourcesPath, 'bin', 'uv.exe')
 
 const token = randomBytes(24).toString('base64url')
 let engineProc: ChildProcess | null = null
-let installerProc: ChildProcess | null = null
-let restartTimer: ReturnType<typeof setTimeout> | undefined
 let enginePort = 0
 let engineState: EngineState = 'starting'
 let engineLog: string[] = []
 let quitting = false
 let restarts = 0
-let setupProgress: SetupProgress | undefined
-let setupProfile: SetupProfile = 'nvidia'
-let setupCancelled = false
-let clearLogOnReady = false
-
-const profileFile = () => join(dataRoot, 'runtime', 'profile.json')
-
-function updateSetup(stage: SetupProgress['stage'], detail: string, error?: string) {
-  setupProgress = { profile: setupProfile, stage, detail, ...(error ? { error } : {}) }
-  win?.webContents.send('engine:state', engineInfo())
-}
 
 function pushLog(line: string) {
   engineLog.push(line)
@@ -130,27 +91,23 @@ function setEngineState(s: EngineState) {
 }
 
 function engineInfo() {
-  return { state: engineState, port: enginePort, token, log: engineLog.slice(-60), dev: isDev, setup: setupProgress, setupProfile }
+  return { state: engineState, port: enginePort, token, log: engineLog.slice(-60), dev: isDev }
 }
 
 function startEngine() {
-  if (quitting || engineProc || installerProc) return
-  clearTimeout(restartTimer)
-  if (existsSync(incompleteSetupFile) || !existsSync(pythonExe)) {
+  if (!existsSync(pythonExe)) {
     setEngineState('needs-setup')
     return
   }
   setEngineState('starting')
-  const startedAt = Date.now()
   const proc = spawn(pythonExe, ['-u', '-m', 'vcengine.server', '--port', '0', '--parent-pid', String(process.pid)], {
     cwd: engineDir,
     env: { ...process.env, VOCALIS_TOKEN: token, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
     windowsHide: true,
   })
   engineProc = proc
-  const readLines = () => {
-    let buf = ''
-    return (chunk: Buffer) => {
+  let buf = ''
+  const onData = (chunk: Buffer) => {
     buf += chunk.toString('utf-8')
     let i: number
     while ((i = buf.indexOf('\n')) >= 0) {
@@ -159,63 +116,38 @@ function startEngine() {
       const m = /^VOCALIS_READY (\d+)/.exec(line)
       if (m) {
         enginePort = Number(m[1])
-        if (clearLogOnReady) {
-          engineLog = []
-          clearLogOnReady = false
-        }
-        if (setupProgress?.stage === 'verifying') updateSetup('complete', 'Движок установлен и готов к работе.')
+        restarts = 0
         setEngineState('ready')
       } else if (line) {
         pushLog(line)
       }
     }
   }
-  }
-  proc.stdout?.on('data', readLines())
-  proc.stderr?.on('data', readLines())
-  let finished = false
-  const finish = (code: number | null, error?: Error) => {
-    if (finished) return
-    finished = true
-    if (engineProc !== proc) return
+  proc.stdout?.on('data', onData)
+  proc.stderr?.on('data', onData)
+  proc.on('exit', (code) => {
     engineProc = null
     if (quitting) return
-    pushLog(error ? `[engine could not start: ${error.message}]` : `[engine exited with code ${code}]`)
-    if (setupProgress?.stage === 'verifying') updateSetup('error', 'Зависимости установлены, но движок не запустился. Подробности в журнале.', error?.message || `Код ${code}`)
+    pushLog(`[engine exited with code ${code}]`)
     setEngineState('crashed')
-    if (Date.now() - startedAt > 60000) restarts = 0
     if (restarts < 3) {
       restarts++
-      restartTimer = setTimeout(startEngine, 1500)
+      setTimeout(startEngine, 1500)
     }
-  }
-  proc.once('error', (error) => finish(null, error))
-  proc.once('exit', (code) => finish(code))
+  })
 }
 
-function setupEngine(profile: SetupProfile = 'nvidia') {
-  if (quitting || installerProc || engineProc || engineState === 'installing') return
-  if (!['nvidia', 'amd', 'laptop', 'cpu'].includes(profile)) throw new Error('Неизвестный профиль установки')
-  setupProfile = profile
-  setupCancelled = false
-  updateSetup('preparing', 'Подготовка Python 3.11 и окружения. Потребуются интернет и свободное место на диске.')
+function setupEngine() {
+  if (engineState === 'installing') return
   if (!existsSync(uvExe)) {
     pushLog(`uv не найден: ${uvExe}`)
-    updateSetup('error', 'Не найден установщик uv. Переустановите Vocalis.', 'uv не найден')
     setEngineState('needs-setup')
     return
   }
   setEngineState('installing')
   mkdirSync(join(dataRoot, 'runtime'), { recursive: true })
-  try {
-    writeFileSync(incompleteSetupFile, JSON.stringify({ profile, startedAt: new Date().toISOString() }))
-  } catch (error) {
-    updateSetup('error', 'Не удалось сохранить состояние установки. Проверьте доступ к диску.', String(error))
-    setEngineState('needs-setup')
-    return
-  }
   const proc = spawn(uvExe, ['sync', '--frozen', '--python', '3.11', '--no-progress'], {
-    cwd: profile === 'nvidia' ? engineDir : join(engineDir, 'profiles', 'cpu'),
+    cwd: engineDir,
     env: {
       ...process.env,
       UV_PROJECT_ENVIRONMENT: runtimeEnv,
@@ -225,54 +157,13 @@ function setupEngine(profile: SetupProfile = 'nvidia') {
     },
     windowsHide: true,
   })
-  installerProc = proc
-  const readInstallerLines = () => {
-    let pending = ''
-    return (chunk: Buffer) => {
-      pending += chunk.toString('utf-8')
-      const lines = pending.split(/[\r\n]+/)
-      pending = lines.pop() || ''
-      for (const line of lines.filter(Boolean)) {
-        pushLog(line)
-        const stage = /download/i.test(line) ? 'downloading' : /install|uninstall|prepared/i.test(line) ? 'installing' : setupProgress?.stage || 'preparing'
-        updateSetup(stage, line)
-      }
-    }
-  }
-  proc.stdout?.on('data', readInstallerLines())
-  proc.stderr?.on('data', readInstallerLines())
-  let finished = false
-  proc.once('error', (error) => {
-    if (finished) return
-    finished = true
-    installerProc = null
-    pushLog(`Не удалось запустить установку: ${error.message}`)
-    updateSetup('error', 'Не удалось запустить установку. Можно повторить попытку.', error.message)
-    if (!quitting) setEngineState('needs-setup')
-  })
+  const onData = (chunk: Buffer) => chunk.toString('utf-8').split(/\r?\n/).filter(Boolean).forEach(pushLog)
+  proc.stdout?.on('data', onData)
+  proc.stderr?.on('data', onData)
   proc.on('exit', (code) => {
-    if (finished) return
-    finished = true
-    installerProc = null
-    if (quitting) return
-    if (setupCancelled) {
-      updateSetup('cancelled', 'Установка отменена. Для продолжения запустите её повторно.')
-      setEngineState('needs-setup')
-    } else if (code === 0) {
-      updateSetup('verifying', 'Зависимости установлены. Проверяем запуск движка…')
-      try {
-        writeFileSync(profileFile(), JSON.stringify({ profile: setupProfile }))
-        unlinkSync(incompleteSetupFile)
-      } catch (error) {
-        updateSetup('error', 'Не удалось завершить настройку. Проверьте доступ к диску и повторите установку.', String(error))
-        setEngineState('needs-setup')
-        return
-      }
-      startEngine()
-    }
+    if (code === 0) startEngine()
     else {
       pushLog(`[установка завершилась с кодом ${code}]`)
-      updateSetup('error', 'Установка не завершена. Проверьте сеть, свободное место и журнал; затем повторите попытку.', `Код ${code}`)
       setEngineState('needs-setup')
     }
   })
@@ -282,7 +173,6 @@ async function engineFetch(path: string, body?: unknown) {
   if (engineState !== 'ready') throw new Error('engine not ready')
   const r = await fetch(`http://127.0.0.1:${enginePort}${path}`, {
     method: body === undefined ? 'GET' : 'POST',
-    signal: AbortSignal.timeout(5000),
     headers: { 'X-Vocalis-Token': token, 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   })
@@ -306,12 +196,12 @@ async function runAction(action: HotkeyAction) {
       const voices: { id: string; status: string; suggestedPitch: number }[] = await engineFetch('/voices')
       let ready = voices.filter((v) => v.status === 'ready').map((v) => v.id)
       if (settings.quickSwitchFavoritesOnly) {
-        ready = ready.filter((id) => settings.favorites.includes(id))
+        const fav = ready.filter((id) => settings.favorites.includes(id))
+        if (fav.length) ready = fav
       }
       if (!ready.length) return
       const cur = ready.indexOf(e.voiceId)
-      const index = cur < 0 ? (action === 'next' ? 0 : ready.length - 1) : (cur + (action === 'next' ? 1 : -1) + ready.length) % ready.length
-      const next = ready[index]
+      const next = ready[(cur + (action === 'next' ? 1 : -1) + ready.length) % ready.length]
       await engineFetch('/engine/voice', { id: next })
       rememberRecent(next)
     }
@@ -330,15 +220,8 @@ function rememberRecent(id: string) {
 function applyHotkeys(): Record<string, string> {
   globalShortcut.unregisterAll()
   const errors: Record<string, string> = {}
-  const seen = new Set<string>()
   for (const [action, accel] of Object.entries(settings.hotkeys) as [HotkeyAction, string][]) {
     if (!accel) continue
-    const normalized = accel.toLowerCase().replace(/control/g, 'ctrl').replace(/\s/g, '').split('+').sort().join('+')
-    if (seen.has(normalized)) {
-      errors[action] = 'Это сочетание уже назначено другому действию'
-      continue
-    }
-    seen.add(normalized)
     try {
       if (!globalShortcut.register(accel, () => runAction(action))) errors[action] = 'Сочетание занято другим приложением'
     } catch {
@@ -372,12 +255,12 @@ function createWindow() {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       contextIsolation: true,
-      backgroundThrottling: true,
+      backgroundThrottling: !process.env.VOCALIS_SHOTS,
       nodeIntegration: false,
     },
   })
   win.once('ready-to-show', () => {
-    if (!(settings.startMinimized && process.argv.includes('--hidden'))) win?.show()
+    if (!process.env.VOCALIS_SHOTS && !(settings.startMinimized && process.argv.includes('--hidden'))) win?.show()
   })
   win.on('close', (e) => {
     if (!quitting && settings.closeToTray) {
@@ -413,9 +296,6 @@ function createTray() {
 
 async function quit() {
   quitting = true
-  cableSetup.cancel()
-  clearTimeout(restartTimer)
-  installerProc?.kill()
   try {
     if (engineState === 'ready') await engineFetch('/shutdown', {})
   } catch {
@@ -430,25 +310,15 @@ async function quit() {
 // ------------------------------------------------------------------ IPC
 function registerIpc() {
   ipcMain.handle('engine:info', () => engineInfo())
-  ipcMain.handle('engine:setup', (_e, profile?: SetupProfile) => setupEngine(profile))
-  ipcMain.handle('engine:cancelSetup', () => {
-    if (!installerProc) return
-    setupCancelled = true
-    installerProc.kill()
-  })
-  ipcMain.handle('setup:cable', () => shell.openExternal('https://vb-audio.com/Cable/'))
-  ipcMain.handle('cable:status', () => cableSetup.status())
-  ipcMain.handle('cable:setup', () => cableSetup.setup())
-  ipcMain.handle('cable:cancel', () => cableSetup.cancel())
+  ipcMain.handle('engine:setup', () => setupEngine())
   ipcMain.handle('engine:restart', () => {
-    clearLogOnReady = true
     restarts = 0
     if (engineProc) engineProc.kill()
     else startEngine()
   })
   ipcMain.handle('settings:get', () => settings)
   ipcMain.handle('settings:set', (_e, patch: Partial<AppSettings>) => {
-    settings = normalizeSettings({ ...settings, ...patch, hotkeys: { ...settings.hotkeys, ...(patch.hotkeys || {}) } })
+    settings = { ...settings, ...patch, hotkeys: { ...settings.hotkeys, ...(patch.hotkeys || {}) } }
     saveSettings()
     let hotkeyErrors = {}
     if (patch.hotkeys) hotkeyErrors = applyHotkeys()
@@ -478,8 +348,59 @@ function registerIpc() {
   ipcMain.handle('app:info', () => ({ version: app.getVersion(), dataRoot, engineDir, isDev }))
 }
 
+// ------------------------------------------------------------------ QA screenshots
+// VOCALIS_SHOTS=<dir> walks every page once the UI is connected and saves PNGs.
+async function captureShots(dir: string) {
+  mkdirSync(dir, { recursive: true })
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+  const js = (code: string) => win!.webContents.executeJavaScript(code)
+  const snapshot = async () => {
+    // A hidden window may otherwise return its previous compositor frame.
+    await win!.webContents.capturePage(undefined, { stayHidden: true, stayAwake: true })
+    await sleep(200)
+    return win!.webContents.capturePage(undefined, { stayHidden: true, stayAwake: true })
+  }
+  for (let i = 0; i < 60; i++) {
+    if (await js(`!!document.querySelector('aside nav')`)) break
+    await sleep(500)
+  }
+  await sleep(2500)
+  await js(`document.querySelector('[role=alertdialog] button')?.click()`)
+  const pages = ['Главная', 'Библиотека голосов', 'Менеджер моделей', 'Настройки', 'Система']
+  for (const [i, label] of pages.entries()) {
+    await js(`[...document.querySelectorAll('aside nav button')].find(b => b.textContent.includes(${JSON.stringify(label)}))?.click()`)
+    await sleep(1800)
+    const img = await snapshot()
+    writeFileSync(join(dir, `${i + 1}-${label}.png`), img.toPNG())
+    if (label === 'Менеджер моделей') {
+      for (let check = 0; check < 30; check++) {
+        if (await js(`document.querySelector('main h1')?.textContent === 'Менеджер моделей'`)) break
+        await sleep(150)
+      }
+      await js(`[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Источники')?.click()`)
+      for (let check = 0; check < 30; check++) {
+        if (await js(`!!document.querySelector('[role=dialog]')?.textContent.includes('Warlock700')`)) break
+        await sleep(150)
+      }
+      writeFileSync(join(dir, 'sources-dom.json'), JSON.stringify(await js(`({buttons: [...document.querySelectorAll('button')].map(b=>b.textContent), dialog: document.querySelector('[role=dialog]')?.outerHTML ?? null})`), null, 2))
+      await js(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
+      await sleep(1000)
+      writeFileSync(join(dir, '3-sources.png'), (await snapshot()).toPNG())
+      await js(`document.querySelector('[data-slot=dialog-close]')?.click()`)
+      await sleep(300)
+    }
+    if (label !== 'Настройки') continue
+    for (const tab of ['Виртуальный микрофон', 'Обработка', 'Производительность', 'Горячие клавиши']) {
+      await js(`[...document.querySelectorAll('[role=tab]')].find(b => b.textContent.includes(${JSON.stringify(tab)}))?.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}))`)
+      await sleep(1200)
+      writeFileSync(join(dir, `4-settings-${tab}-dom.json`), JSON.stringify(await js(`({tabs:[...document.querySelectorAll('[role=tab]')].map(t=>({label:t.textContent,selected:t.getAttribute('aria-selected')})),text:document.querySelector('[role=tabpanel]')?.textContent})`), null, 2))
+      writeFileSync(join(dir, `4-settings-${tab}.png`), (await snapshot()).toPNG())
+    }
+  }
+  quit()
+}
+
 // ------------------------------------------------------------------ lifecycle
-const cableSetup = new CableSetup(app.getPath('temp'), info => win?.webContents.send('cable:state', info))
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
@@ -490,23 +411,16 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     app.setAppUserModelId('app.vocalis')
     loadSettings()
-    try {
-      const saved = JSON.parse(readFileSync(profileFile(), 'utf-8'))
-      if (['nvidia', 'amd', 'laptop', 'cpu'].includes(saved.profile)) setupProfile = saved.profile
-    } catch { /* first launch */ }
     registerIpc()
     createWindow()
-    void cableSetup.status()
     createTray()
     applyHotkeys()
     startEngine()
+    if (process.env.VOCALIS_SHOTS) win!.once('ready-to-show', () => captureShots(process.env.VOCALIS_SHOTS!))
   })
   app.on('will-quit', () => globalShortcut.unregisterAll())
   app.on('before-quit', () => {
     quitting = true
-    cableSetup.cancel()
-    clearTimeout(restartTimer)
-    installerProc?.kill()
     engineProc?.kill()
   })
   app.on('window-all-closed', () => {

@@ -1,6 +1,7 @@
-Vocalis - Local RVC voice changer
+Vocalis — real-time AI voice changer
+=====================================
 
-MIT License
+Vocalis is distributed under the MIT License.
 
 Copyright (c) 2026 Vocalis contributors
 
@@ -16,21 +17,26 @@ copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
-Third-party components retain their own licenses. See the installed licenses
-folder, THIRD_PARTY_LICENSES.md and THIRD_PARTY_NOTICES.txt.
+Third-party components
+----------------------
+* Voice conversion engine code is derived from Applio (https://github.com/IAHispano/Applio),
+  MIT License, Copyright (c) 2026 AI Hispano.
+* PyTorch, ONNX Runtime, PortAudio/sounddevice, FastAPI, Electron, React and other
+  libraries are used under their respective open-source licenses.
+* uv (https://github.com/astral-sh/uv) is bundled to install the Python runtime,
+  licensed under Apache-2.0 / MIT.
 
-No target-voice weights, recordings or converted speech examples are bundled.
-Local previews use the installed Windows speech voice and the selected RVC
-model. Public catalog metadata does not certify rights in a voice. Shared
-RVC assets are downloaded separately under their upstream terms. Existing
-local user models and audio retain their original rights and are not
-relicensed by Vocalis.
+Voice models
+------------
+Character voice models in the built-in catalog are UNOFFICIAL community (fan-made)
+RVC models hosted on Hugging Face. They are not included in this installer and are
+downloaded only when you request them. Characters and their voice performances are
+the property of their respective rights holders. Use the models for personal,
+non-commercial entertainment only, and never to impersonate real people.
 
-Routing into other applications requires a separately installed virtual
-cable driver such as VB-CABLE (https://vb-audio.com/Cable/).
+Virtual microphone
+------------------
+Routing audio into other applications requires a third-party virtual audio cable
+driver such as VB-CABLE (https://vb-audio.com/Cable/), which is installed separately.

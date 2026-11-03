@@ -1,4 +1,4 @@
-import type { CatalogEntry, CatalogInstallSelection, CatalogJob, CatalogProvider, CatalogSearchResult, DeviceList, EngineParams, EngineStatus, JobInfo, Preset, Voice } from './types'
+import type { DeviceList, EngineParams, EngineStatus, Preset, Voice } from './types'
 
 let base = ''
 let token = ''
@@ -18,17 +18,15 @@ export function mediaUrl(path: string) {
 
 export class ApiError extends Error {}
 
-async function req<T>(method: string, path: string, body?: unknown, timeoutMs = 30000): Promise<T> {
+async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
   let r: Response
   try {
     r = await fetch(base + path, {
       method,
-      signal: AbortSignal.timeout(timeoutMs),
       headers: { 'X-Vocalis-Token': token, 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     })
-  } catch (e) {
-    if ((e as Error).name === 'TimeoutError') throw new ApiError('Движок долго не отвечает. Повторите действие')
+  } catch {
     throw new ApiError('Аудиодвижок недоступен')
   }
   const data = await r.json().catch(() => ({}))
@@ -37,12 +35,6 @@ async function req<T>(method: string, path: string, body?: unknown, timeoutMs = 
 }
 
 export const api = {
-  catalogProviders: () => req<{ providers: CatalogProvider[] }>('GET', '/catalog/providers'),
-  catalogSearch: (q: string, provider: string, category: string, sort: 'name' | 'downloads') => req<CatalogSearchResult>('GET', `/catalog/search?${new URLSearchParams({ q, provider, category, sort })}`, undefined, 60000),
-  catalogDetail: (provider: string, id: string) => req<CatalogEntry>('GET', `/catalog/models/${encodeURIComponent(provider)}/${id.split('/').map(encodeURIComponent).join('/')}`),
-  catalogInstall: (provider: string, id: string, selection?: CatalogInstallSelection) => req<{ voiceId: string; job: JobInfo }>('POST', '/catalog/install', { provider, id, ...(selection ? { selection } : {}) }),
-  catalogJobs: () => req<{ jobs: CatalogJob[] }>('GET', '/catalog/jobs'),
-  catalogCancel: (voiceId: string) => req('POST', `/catalog/jobs/${encodeURIComponent(voiceId)}/cancel`),
   devices: (refresh = false) => req<DeviceList>('GET', `/devices${refresh ? '?refresh=true' : ''}`),
   setDevices: (d: { input?: number; output?: number; monitor?: number }) => req<EngineStatus>('POST', '/devices', d),
   testOutput: (id: number) => req('POST', '/devices/test-output', { id }),
@@ -59,13 +51,11 @@ export const api = {
   start: () => req<EngineStatus>('POST', '/engine/start'),
   stop: () => req<EngineStatus>('POST', '/engine/stop'),
   selectVoice: (id: string) => req<EngineStatus>('POST', '/engine/voice', { id }),
-  resetVoiceProfile: (id: string) => req<EngineStatus>('POST', '/engine/voice/reset', { id }),
-  voiceParams: (voiceId: string, p: Partial<EngineParams>) => req<EngineStatus>('POST', '/engine/params', { ...p, voiceId }),
   params: (p: Partial<EngineParams>) => req<EngineStatus>('POST', '/engine/params', p),
   preset: (name: Preset) => req<EngineStatus>('POST', '/engine/preset', { name }),
   compute: (device: 'auto' | 'cpu') => req<EngineStatus>('POST', '/engine/compute', { device }),
   system: () => req<SystemInfo>('GET', '/system'),
-  previewConvert: (voiceId: string) => req<{ url: string; seconds: number; text: string; source: 'windows-sapi' }>('POST', '/preview/convert', { voiceId }, 180000),
+  previewConvert: (voiceId: string) => req<{ url: string; seconds: number }>('POST', '/preview/convert', { voiceId }),
 }
 
 export interface SystemInfo {

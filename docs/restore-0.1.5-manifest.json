@@ -1,0 +1,172 @@
+{
+  "appVersion": "0.1.5",
+  "engineVersion": "\"\"\"Vocalis local voice conversion engine.\"\"\"\n\n__version__ = \"0.1.5\"",
+  "originalInstallerAvailable": false,
+  "historicalRendererMatches": [
+    "index-BKcaSjGX.css",
+    "index-pgibRCEZ.js"
+  ],
+  "previewCount": 12,
+  "previewSha256": {
+    "burunov-ru.wav": "a7f0212be7c08b4b0782f12ccc8aaaf3d05f1ee5abbbbad78a17f7dd60a36750",
+    "deadpool-ru.wav": "2785538803c09302a2bd32d385b53f5a0ad694f93cb4170bc4e3a63e4ee6c649",
+    "geralt-kuznetsov-ru.wav": "49f87e89c10e1b7d0dd40f5110fc954c5573fcf87e10167f0be7b30be0feee51",
+    "invoker-ru.wav": "daa5c0c5b131112f361f23e88b4b15179d0d9f4d283d84867de406a662df0098",
+    "optimus-prime-ru.wav": "73a578a723a637a98c067343c290fb6a1d9651632471352dcdea1011785b2aec",
+    "pudge-ru.wav": "209255817860a44cd1140927afec94aec9f96c97c30ecd8d6c551424a6ebd3ed",
+    "shrek-alt-ru.wav": "6ee5f7facbc7d628c8116963854766b2b0aaafa4db4f343dfedf88a6e7bb76f3",
+    "shrek-ru.wav": "b0ac032c9fa260b3109f1b3325d59fd29f45d847725300ed6f498a676fbb5333",
+    "sonic-ru.wav": "ac06142a07592dfdaff6749ac2283ac7907d4a28f321886620a434f630a753ac",
+    "spongebob-ru.wav": "519ba0ee7015da90957032a5f360a8c65feb2d35a96b57c8772780c65978ff27",
+    "treant-ru.wav": "2e0a33c1e79f7f65b58b0ff0ef68425bb979c1cdf7712f65b5d0120fc8b5beec",
+    "witch-doctor-ru.wav": "571647a8517b4662e0bc6804a4d391f331f731d88fa29051b447702763b8bb8d"
+  },
+  "userEngineSettingsUnchanged": true,
+  "realtimeSmoke": [
+    {
+      "voice": "pudge-ru",
+      "rms": 0.10874897241592407,
+      "peak": 0.8723451495170593,
+      "p95Ms": 137.98163000005843,
+      "blockMs": 200.0,
+      "seconds": 7.6
+    },
+    {
+      "voice": "geralt-kuznetsov-ru",
+      "rms": 0.07054055482149124,
+      "peak": 0.7849107980728149,
+      "p95Ms": 160.1057999995646,
+      "blockMs": 200.0,
+      "seconds": 7.6
+    }
+  ],
+  "audioEngineSha256": "97b7ec96e711ff9e7d81340e57b771bed72b5f3c95a9d47b652e857703ee45a4",
+  "preservedLocalModels": [
+    "burunov-ru",
+    "custom-voice",
+    "custom-voice-2",
+    "custom-voice-3",
+    "custom-voice-4",
+    "custom-voice-5",
+    "custom-voice-6",
+    "deadpool-ru",
+    "geralt-kuznetsov-ru",
+    "glad-valakas-ru",
+    "invoker-ru",
+    "ivona-maxim-ru",
+    "optimus-prime-ru",
+    "pudge-ru",
+    "shrek-alt-ru",
+    "shrek-ru",
+    "sonic-ru",
+    "spongebob-ru",
+    "treant-ru",
+    "witch-doctor-ru"
+  ],
+  "restoredOn": "2026-11-04",
+  "timezone": "Asia/Sakhalin",
+  "branch": "restore/0.1.5-20261104",
+  "backupBranch": "backup/before-restore-0.1.5-20261104",
+  "unitTests": {
+    "passed": 24,
+    "failed": 0
+  },
+  "typecheck": "passed",
+  "engineLockfile": "checked offline",
+  "uiScreenshots": "checked: Sources dialog and Processing settings",
+  "localModels": {
+    "factoryReady": 12,
+    "customPreserved": 6,
+    "factoryIds": [
+      "spongebob-ru",
+      "shrek-ru",
+      "sonic-ru",
+      "pudge-ru",
+      "invoker-ru",
+      "treant-ru",
+      "witch-doctor-ru",
+      "burunov-ru",
+      "geralt-kuznetsov-ru",
+      "deadpool-ru",
+      "optimus-prime-ru",
+      "shrek-alt-ru"
+    ]
+  },
+  "archivePayloadVerification": {
+    "checkedAt": "2026-11-03T15:29:36.664678+00:00",
+    "method": "Reconstructed source archive pins verified by SHA-256 of extracted payloads against original installed model files; weights not replaced. These are reconstruction-time source pins, not a claim of exact historical JSON metadata.",
+    "archives": [
+      {
+        "voice": "witch-doctor-ru",
+        "revision": "ea377f04695daf734596d73fd42fe1509f785dde",
+        "archiveSha256": "45046eedf0fa26bede0a13df195837b117ee933e07e80db806664aa92624873d",
+        "url": "https://huggingface.co/datasets/Dubina/dota2-wd/resolve/ea377f04695daf734596d73fd42fe1509f785dde/wdpack.zip",
+        "payloadsMatchInstalledHistoricalWeights": true,
+        "members": {
+          "pth": {
+            "member": "dota1_e250_s1000.pth",
+            "sha256": "27ba2a7afe05b0021237fe1c33e757d28e4ffe29c5cceb6843768fbfaf467519"
+          },
+          "index": {
+            "member": "added_IVF44_Flat_nprobe_1_dota1_v2.index",
+            "sha256": "96f3e6b10ca3fb67ca9a3563e43cb818481647712c694b079b9bd826ac2bea32"
+          }
+        }
+      },
+      {
+        "voice": "geralt-kuznetsov-ru",
+        "revision": null,
+        "archiveSha256": "8d22859d5a07afb836d2d05fb0f539198678d10d5a48915c0568e63fa9dd3e66",
+        "url": "https://drive.google.com/uc?export=download&id=1z7l_FdMpCMyd47lAsVMjBjX4pRQscZCn",
+        "payloadsMatchInstalledHistoricalWeights": true,
+        "members": {
+          "index": {
+            "member": "added_TW3_M_Geralt_Rus_v2.index",
+            "sha256": "102e6667aeb5fe10c0f93eb916b1c8e0457b529da6fd03b803a89584f745243e"
+          }
+        }
+      },
+      {
+        "voice": "deadpool-ru",
+        "revision": "b5eeeb6691ff99690d81a1a6005b769e8740c0da",
+        "archiveSha256": "0c5c2c9d7a3b608f7ce520cb077fc9b5fecaf0478cfbe203351d68a3fd7b8a96",
+        "url": "https://huggingface.co/Player1444/AI.models/resolve/b5eeeb6691ff99690d81a1a6005b769e8740c0da/Deadpool-rus%20dub%20%28Trained%20on%20Snowie%20V3%29.zip",
+        "payloadsMatchInstalledHistoricalWeights": true,
+        "members": {
+          "pth": {
+            "member": "Deadpool-rus dub (Trained on Snowie V3).pth",
+            "sha256": "f10dc408020901977088ec167635f686047e86a4c4fb103a8f74e437255fbd86"
+          },
+          "index": {
+            "member": "added_IVF826_Flat_nprobe_1_deadpool-rus-dub_v2.index",
+            "sha256": "e6b119dc32411114d961728eb6e78129ad2a933046834203b2ff658a9c93fd41"
+          }
+        }
+      },
+      {
+        "voice": "optimus-prime-ru",
+        "revision": "b5eeeb6691ff99690d81a1a6005b769e8740c0da",
+        "archiveSha256": "1092e349610e9dfceadfbfee73513ed12ff05e44da89738202cfc687acd453b7",
+        "url": "https://huggingface.co/Player1444/AI.models/resolve/b5eeeb6691ff99690d81a1a6005b769e8740c0da/Optimus%20Prime-rus-dub%20%28Trained%20on%20Snowie%20V3%29.zip",
+        "payloadsMatchInstalledHistoricalWeights": true,
+        "members": {
+          "pth": {
+            "member": "Optimus Prime-rus-dub (Trained on Snowie V3).pth",
+            "sha256": "1c44315068dc4524729215f29576a25ce0e01ed545a7e6d5245be95725ea96a5"
+          },
+          "index": {
+            "member": "added_IVF260_Flat_nprobe_1_optimus-prime-rus-dub_v2.index",
+            "sha256": "8c33a23af9bf9ad8f390f27ef37875b4951bbf69816d578342004f9d624511ad"
+          }
+        }
+      }
+    ]
+  },
+  "installer": {
+    "path": "D:\\Vocalis\\app\\release\\Vocalis-Setup-0.1.5.exe",
+    "size": 141210395,
+    "sha256": "d6379a8ef00e5f83abd23b870ddeb76f61aa5344d5108a8ff625047fc4dcefe2"
+  },
+  "packagedResources": "verified against restored source",
+  "metadataLimits": "Historical source JSON formatting, some download pins and partial voiceReview were reconstructed. All newly recovered archive payloads match original installed model files; no weights replaced."
+}

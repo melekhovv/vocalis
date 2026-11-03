@@ -75,7 +75,7 @@ def main():
     ap.add_argument("--preset", default="all")
     ap.add_argument("--pitch", type=int, default=None)
     ap.add_argument("--cpu", action="store_true")
-    ap.add_argument("--clip", required=True, help="Your own input audio file")
+    ap.add_argument("--clip", default=str(ROOT / "data" / "speech.wav"))
     a = ap.parse_args()
     models = ModelManager()
     voices = a.voices or [v["id"] for v in models.list_voices() if v["status"] == "ready"]

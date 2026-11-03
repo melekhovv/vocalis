@@ -1,6 +1,6 @@
 """Long-running stability test against a live engine (HTTP API).
 
-Usage: python -m tests.soak --port 47800 --token TOKEN --minutes 10 --voice custom-your-voice
+Usage: python -m tests.soak --port 47800 --token devtoken --minutes 10 --voice rick-sanchez
 Runs the real audio pipeline with the noise gate fully open (every block goes
 through the network) and output gain 0, sampling memory, latency and dropouts.
 """
@@ -27,7 +27,7 @@ def main():
     ap.add_argument("--port", type=int, default=47800)
     ap.add_argument("--token", default="devtoken")
     ap.add_argument("--minutes", type=float, default=10)
-    ap.add_argument("--voice", required=True)
+    ap.add_argument("--voice", default="rick-sanchez")
     ap.add_argument("--preset", default="balanced")
     ap.add_argument("--interval", type=float, default=30)
     a = ap.parse_args()

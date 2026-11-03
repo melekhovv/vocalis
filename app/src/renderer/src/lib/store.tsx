@@ -38,7 +38,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     bridge.getSettings().then(setSettings)
     const offs = [
       bridge.onEngineState(setInfo),
-      bridge.onEngineLog((line) => setInfo((current) => current ? { ...current, log: [...current.log, line].slice(-400) } : current)),
       bridge.onSettings(setSettings),
       bridge.onHotkey((e) => {
         if (!e.ok) toast.error('Горячая клавиша не сработала', { description: e.error })
@@ -49,9 +48,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // (Re)connect the status socket whenever the engine (re)starts.
   useEffect(() => {
-    setStatus(null)
-    setVoices([])
-    setLevels({ input: [], output: [] })
     if (!info || info.state !== 'ready') {
       setConnected(false)
       return
@@ -62,14 +58,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const connect = () => {
       const ws = new WebSocket(wsUrl())
       wsRef.current = ws
-      ws.onopen = () => { if (!closed && wsRef.current === ws) setConnected(true) }
+      ws.onopen = () => setConnected(true)
       ws.onclose = () => {
-        if (closed || wsRef.current !== ws) return
         setConnected(false)
         if (!closed) retry = setTimeout(connect, 1000)
       }
       ws.onmessage = (ev) => {
-        if (closed || wsRef.current !== ws) return
         const msg: StatusMessage = JSON.parse(ev.data)
         setStatus(msg)
         if (msg.voices) setVoices(msg.voices)
@@ -93,14 +87,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [info?.state, info?.port, info?.token])
 
   const updateSettings = useCallback(async (patch: Partial<AppSettings>) => {
-    try {
     const r = await bridge.setSettings(patch)
     setSettings(r.settings)
     const errs = Object.entries(r.hotkeyErrors || {})
     if (errs.length) toast.error('Не удалось назначить горячие клавиши', { description: errs.map(([k, v]) => `${k}: ${v}`).join('\n') })
-    } catch (e) {
-      toast.error('Не удалось сохранить настройки', { description: (e as Error).message })
-    }
   }, [])
 
   const toggleFavorite = useCallback(
@@ -116,12 +106,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     async (id: string) => {
       try {
         await api.selectVoice(id)
-        await bridge.rememberVoice(id)
+        bridge.rememberVoice(id)
       } catch (e) {
         toast.error('Не удалось выбрать голос', { description: (e as Error).message })
       }
     },
-    [],
+    [voices],
   )
 
   const toggleEngine = useCallback(async () => {

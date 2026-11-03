@@ -7,16 +7,13 @@ shell (header ``X-Vocalis-Token`` or ``?token=`` for <audio>/WebSocket).
 import argparse
 import asyncio
 import json
-import base64
-import hashlib
-import subprocess
 import os
 import secrets
 import sys
 import threading
 import time
 
-from .paths import DATA_DIR, PREVIEW_DIR, CATALOG_FILE, prepare_runtime
+from .paths import DATA_DIR, PREVIEW_DIR, ENGINE_DIR, CATALOG_FILE, prepare_runtime
 
 prepare_runtime()
 
@@ -29,12 +26,10 @@ from fastapi.responses import FileResponse, JSONResponse  # noqa: E402
 from . import __version__  # noqa: E402
 from . import audio as audio_mod  # noqa: E402
 from .models import ModelError, ModelManager  # noqa: E402
-from .catalog import CatalogService  # noqa: E402
 from .sysmon import SysMon, hardware_info  # noqa: E402
 
 TOKEN = os.environ.get("VOCALIS_TOKEN") or secrets.token_urlsafe(24)
 SETTINGS_FILE = DATA_DIR / "engine-settings.json"
-_settings_lock = threading.Lock()
 
 app = FastAPI(title="Vocalis Engine", version=__version__)
 _version = {"n": 0}
@@ -45,7 +40,6 @@ def bump():
 
 
 models = ModelManager(on_change=bump)
-catalog_service = CatalogService(models)
 engine = audio_mod.AudioEngine(models, on_state=bump)
 sysmon = SysMon()
 _hw = {"info": None}
@@ -57,16 +51,12 @@ def save_settings():
     by_id = {d["id"]: d["name"] for d in devs["inputs"] + devs["outputs"]}
     data = {
         "params": engine.params,
-        "voiceProfiles": engine.voice_profiles,
         "preset": engine.preset,
         "voiceId": engine.voice_id,
         "compute": engine.compute,
         "devices": {k: by_id.get(v) for k, v in engine.devices.items()},
     }
-    with _settings_lock:
-        pending = SETTINGS_FILE.with_suffix(".tmp")
-        pending.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-        pending.replace(SETTINGS_FILE)
+    SETTINGS_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def load_settings():
@@ -75,69 +65,27 @@ def load_settings():
     if SETTINGS_FILE.exists():
         try:
             data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError, UnicodeError):
+        except json.JSONDecodeError:
             data = {}
-    if not isinstance(data, dict):
-        data = {}
-    saved_params = data.get("params") if isinstance(data.get("params"), dict) else {}
-    for k, v in saved_params.items():
+    for k, v in (data.get("params") or {}).items():
         if k in engine.params:
-            try:
-                engine.params.update(audio_mod.validate_params({k: v}))
-            except (TypeError, ValueError):
-                pass
-    if isinstance(data.get("preset"), str) and data["preset"] in audio_mod.PRESETS:
+            engine.params[k] = v
+    if data.get("preset") in audio_mod.PRESETS:
         engine.preset = data["preset"]
-    engine.compute = data.get("compute") if data.get("compute") in ("auto", "cpu") else "auto"
+    engine.compute = data.get("compute", "auto")
 
     def find(names_list, name):
         return next((d["id"] for d in names_list if d["name"] == name), None)
 
-    saved = data.get("devices") if isinstance(data.get("devices"), dict) else {}
-    def first_device(*ids):
-        return next((device_id for device_id in ids if device_id is not None), None)
-
-    engine.devices["input"] = first_device(find(devs["inputs"], saved.get("input")), devs["defaultInput"])
-    engine.devices["output"] = first_device(find(devs["outputs"], saved.get("output")), devs["virtualCable"], devs["defaultOutput"])
-    physical_outputs = [d for d in devs["outputs"] if not d["isVirtualCable"]]
-    engine.devices["monitor"] = first_device(find(physical_outputs, saved.get("monitor")), audio_mod.default_monitor_device(devs))
-    if engine.params["monitor"]:
-        try:
-            engine._validate_monitor_device()
-        except RuntimeError:
-            engine.params["monitor"] = False
+    saved = data.get("devices") or {}
+    engine.devices["input"] = find(devs["inputs"], saved.get("input")) or devs["defaultInput"]
+    engine.devices["output"] = find(devs["outputs"], saved.get("output")) or devs["virtualCable"] or devs["defaultOutput"]
+    engine.devices["monitor"] = find(devs["outputs"], saved.get("monitor")) or devs["defaultOutput"]
     vid = data.get("voiceId")
-    raw_profiles = data.get("voiceProfiles")
-    engine.voice_profiles = {}
-    if isinstance(raw_profiles, dict):
-        for key, profile in raw_profiles.items():
-            if not isinstance(key, str) or not isinstance(profile, dict):
-                continue
-            valid = {}
-            for name, value in profile.items():
-                if name in audio_mod.VOICE_PARAM_KEYS:
-                    try:
-                        valid.update(audio_mod.validate_params({name: value}))
-                    except (TypeError, ValueError):
-                        pass
-            if valid:
-                engine.voice_profiles[key] = valid
-    if isinstance(vid, str) and vid in {v["id"] for v in models.list_voices()}:
+    if vid in {v["id"] for v in models.list_voices()}:
         try:
             models.voice_paths(vid)
-            # Older files held only one global tuning. Migrate it exclusively
-            # to its saved voice, never to every newly selected model.
-            if not isinstance(raw_profiles, dict):
-                migrated = {}
-                for key, value in saved_params.items():
-                    if key in audio_mod.VOICE_PARAM_KEYS:
-                        try:
-                            migrated.update(audio_mod.validate_params({key: value}))
-                        except (TypeError, ValueError):
-                            pass
-                if migrated:
-                    engine.voice_profiles[vid] = migrated
-            engine.select_voice(vid)
+            engine.voice_id = vid
         except ModelError:
             pass
 
@@ -180,13 +128,6 @@ def full_status():
     }
 
 
-def required(body, key):
-    value = body.get(key)
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"Укажите поле {key}")
-    return value.strip()
-
-
 # ------------------------------------------------------------------ routes
 @app.get("/health")
 def health():
@@ -221,8 +162,6 @@ async def set_devices(body: dict):
 
 @app.post("/devices/test-output")
 async def test_output(body: dict):
-    if engine.state in ("running", "loading"):
-        raise HTTPException(409, "Остановите преобразование для тестового сигнала")
     try:
         await asyncio.to_thread(audio_mod.test_output, int(body["id"]))
     except Exception as e:
@@ -232,8 +171,6 @@ async def test_output(body: dict):
 
 @app.post("/devices/test-input")
 async def test_input(body: dict):
-    if engine.state in ("running", "loading"):
-        raise HTTPException(409, "Остановите преобразование для проверки микрофона")
     try:
         return await asyncio.to_thread(audio_mod.test_input, int(body["id"]))
     except Exception as e:
@@ -251,37 +188,6 @@ def voice_sources():
 @app.get("/voices")
 def voices():
     return models.list_voices()
-
-
-@app.get("/catalog/providers")
-def catalog_providers():
-    return catalog_service.providers()
-
-
-@app.get("/catalog/search")
-async def catalog_search(q: str = "", provider: str = "all", category: str = "all", sort: str = "name"):
-    return await asyncio.to_thread(catalog_service.search, q, provider, category, sort)
-
-
-@app.get("/catalog/models/{provider}/{model_id:path}")
-async def catalog_detail(provider: str, model_id: str):
-    return await asyncio.to_thread(catalog_service.detail, provider, model_id)
-
-
-@app.post("/catalog/install")
-async def catalog_install(body: dict):
-    return await asyncio.to_thread(catalog_service.install, required(body, "provider"), required(body, "id"), body.get('selection'))
-
-
-@app.get("/catalog/jobs")
-def catalog_jobs():
-    return catalog_service.jobs()
-
-
-@app.post("/catalog/jobs/{voice_id}/cancel")
-def catalog_cancel(voice_id: str):
-    models.cancel(voice_id)
-    return {"ok": True}
 
 
 @app.post("/voices/{voice_id}/download")
@@ -302,28 +208,18 @@ async def verify(voice_id: str):
 
 @app.delete("/voices/{voice_id}")
 def delete(voice_id: str):
-    # Same lock order as /engine/start; no model can disappear while preview
-    # owns inference or after start validated it but before it opens weights.
-    if not _inference_lock.acquire(blocking=False):
-        raise HTTPException(409, "Дождитесь завершения подготовки примера")
-    try:
-        with engine.control_lock:
-            if engine.voice_id == voice_id and engine.state in ("running", "loading"):
-                raise HTTPException(400, "Нельзя удалить активную модель во время работы — сначала остановите преобразование")
-            models.delete(voice_id)
-            if engine.voice_id == voice_id:
-                engine.voice_id = None
-                engine.has_index = False
-            save_settings()
-    finally:
-        _inference_lock.release()
+    if engine.voice_id == voice_id and engine.state in ("running", "loading"):
+        raise HTTPException(400, "Нельзя удалить активную модель во время работы — сначала остановите преобразование")
+    models.delete(voice_id)
+    if engine.voice_id == voice_id:
+        engine.voice_id = None
     return {"ok": True}
 
 
 @app.post("/voices/import")
 async def import_voice(body: dict):
     vid = await asyncio.to_thread(
-        models.import_custom, required(body, "name"), required(body, "pth"), body.get("index"), body.get("category", "other"), body.get("description", "")
+        models.import_custom, body["name"], body["pth"], body.get("index"), body.get("category", "other"), body.get("description", "")
     )
     return {"id": vid}
 
@@ -337,12 +233,7 @@ def base_assets():
 def start():
     if _preview_lock.locked():
         raise HTTPException(409, "Дождитесь завершения подготовки примера")
-    if not _inference_lock.acquire(blocking=False):
-        raise HTTPException(409, "Дождитесь завершения подготовки примера")
-    try:
-        engine.start()
-    finally:
-        _inference_lock.release()
+    engine.start()
     save_settings()
     return engine.status()
 
@@ -355,37 +246,21 @@ def stop():
 
 @app.post("/engine/voice")
 def voice(body: dict):
-    engine.select_voice(required(body, "id"))
+    engine.select_voice(body["id"])
     save_settings()
     return engine.status()
 
 
 @app.post("/engine/params")
 def params(body: dict):
-    changes = dict(body)
-    vid = changes.pop("voiceId", None)
-    with engine.control_lock:
-        if vid is not None and vid != engine.voice_id:
-            raise HTTPException(409, "Выбранный голос изменился. Повторите настройку для текущего голоса")
-        engine.update_params(changes)
-    save_settings()
-    return engine.status()
-
-
-@app.post("/engine/voice/reset")
-def reset_voice_profile(body: dict):
-    vid = required(body, "id")
-    with engine.control_lock:
-        if vid != engine.voice_id:
-            raise HTTPException(409, "Выбранный голос изменился. Повторите действие для текущего голоса")
-        engine.reset_voice_profile(vid)
+    engine.update_params(body)
     save_settings()
     return engine.status()
 
 
 @app.post("/engine/preset")
 def preset(body: dict):
-    engine.set_preset(required(body, "name"))
+    engine.set_preset(body["name"])
     save_settings()
     return engine.status()
 
@@ -395,10 +270,6 @@ def compute(body: dict):
     dev = body.get("device", "auto")
     if dev not in ("auto", "cpu"):
         raise HTTPException(400, "device должен быть auto или cpu")
-    if engine.state == "loading":
-        raise HTTPException(409, "Дождитесь загрузки модели перед сменой устройства вычислений")
-    if engine.compute == dev:
-        return engine.status()
     engine.compute = dev
     if engine.state == "running":
         engine.restart()
@@ -409,54 +280,13 @@ def compute(body: dict):
 # ------------------------------------------------------------------ preview
 DEMO_TEXT = "Привет! Ну что, готов к приключениям? Тогда поехали!"
 _preview_lock = asyncio.Lock()
-_inference_lock = threading.Lock()
-
-
-_demo_ready = False
 
 
 def demo_clip():
-    """Create a local system-TTS source once per engine session; never read recordings."""
     import soxr
-    global _demo_ready
-    if sys.platform != "win32":
-        raise HTTPException(503, "Встроенный пример требует локальный русский голос Windows")
-    key = hashlib.sha256(("sapi-v1:" + DEMO_TEXT).encode()).hexdigest()[:16]
-    source = PREVIEW_DIR / f"source-{key}.wav"
-    if not _demo_ready or not source.is_file():
-        temporary = source.with_suffix(".tmp.wav")
-        # All values travel as environment data, never interpolated PowerShell code.
-        script = r'''$ErrorActionPreference = 'Stop'
-Add-Type -AssemblyName System.Speech
-$s = New-Object System.Speech.Synthesis.SpeechSynthesizer
-try {
-    $voice = $s.GetInstalledVoices() | Where-Object { $_.Enabled -and $_.VoiceInfo.Culture.Name -like 'ru-*' } | Select-Object -First 1
-    if (-not $voice) { throw 'No installed Russian system voice' }
-    $s.SelectVoice($voice.VoiceInfo.Name)
-    $s.SetOutputToWaveFile($env:VOCALIS_DEMO_OUTPUT)
-    $s.Speak($env:VOCALIS_DEMO_TEXT)
-} finally { $s.Dispose() }
-'''
-        env = os.environ.copy()
-        env.update(VOCALIS_DEMO_OUTPUT=str(temporary), VOCALIS_DEMO_TEXT=DEMO_TEXT)
-        powershell = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
-        try:
-            subprocess.run([powershell, "-NoProfile", "-NonInteractive", "-EncodedCommand",
-                            base64.b64encode(script.encode("utf-16-le")).decode("ascii")],
-                           env=env, capture_output=True, timeout=45, check=True,
-                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-            temporary.replace(source)
-            _demo_ready = True
-        except (OSError, subprocess.SubprocessError) as exc:
-            raise HTTPException(503, "Не удалось создать пример. Установите русский системный голос в параметрах речи Windows и перезапустите движок") from exc
-        finally:
-            temporary.unlink(missing_ok=True)
-    clip, sr = sf.read(source, dtype="float32")
+    clip, sr = sf.read(ENGINE_DIR / "assets" / "demo-ru.wav", dtype="float32")
     if clip.ndim > 1:
         clip = clip.mean(axis=1)
-    if not len(clip) or len(clip) / sr > 30 or not np.isfinite(clip).all():
-        _demo_ready = False
-        raise HTTPException(503, "Системный голос Windows создал некорректный пример")
     return soxr.resample(clip, sr, audio_mod.SR) if sr != audio_mod.SR else clip
 
 
@@ -466,33 +296,33 @@ async def preview_convert(body: dict):
     voice = next((v for v in models.list_voices() if v["id"] == vid), None)
     if voice is None:
         raise HTTPException(404, "Голос отсутствует в библиотеке")
+    # Pre-rendered by the actual RVC model; playback requires no GPU or microphone.
+    bundled = ENGINE_DIR / "assets" / "previews" / f"{vid}.wav"
+    if bundled.is_file():
+        return {"url": f"/preview/audio/{vid}.wav", "seconds": 0, "text": DEMO_TEXT}
     async with _preview_lock:
-        if not _inference_lock.acquire(blocking=False):
-            raise HTTPException(409, "Дождитесь завершения текущей операции")
-        try:
-            if engine.state in ("running", "loading"):
-                raise HTTPException(400, "Остановите преобразование для подготовки примера")
-            if not models.base_assets_status()["ready"]:
-                raise HTTPException(400, "Базовые модели ещё не загружены")
-            models.voice_paths(vid)
-            clip = await asyncio.to_thread(demo_clip)
-            params = engine.effective_voice_profile(vid)
-            t0 = time.perf_counter()
-            out = await asyncio.to_thread(audio_mod.convert_clip, models, vid, clip, params, "quality", engine.compute)
-            name = f"demo-{vid}.wav"
-            sf.write(PREVIEW_DIR / name, out, audio_mod.SR)
-            return {"url": f"/preview/audio/{name}", "seconds": round(time.perf_counter() - t0, 2), "text": DEMO_TEXT, "source": "windows-sapi"}
-        finally:
-            _inference_lock.release()
+        if engine.state in ("running", "loading"):
+            raise HTTPException(400, "Остановите преобразование для подготовки примера")
+        if not models.base_assets_status()["ready"]:
+            raise HTTPException(400, "Базовые модели ещё не загружены")
+        models.voice_paths(vid)
+        clip = demo_clip()  # Never read the old original.wav microphone recording.
+        params = {"pitch": voice.get("suggestedPitch", 0), "index_rate": 0.75, "protect": 0.33}
+        t0 = time.perf_counter()
+        out = await asyncio.to_thread(audio_mod.convert_clip, models, vid, clip, params, "quality", engine.compute)
+        name = f"demo-{vid}.wav"
+        sf.write(PREVIEW_DIR / name, out, audio_mod.SR)
+        return {"url": f"/preview/audio/{name}", "seconds": round(time.perf_counter() - t0, 2), "text": DEMO_TEXT}
 
 
 @app.get("/preview/audio/{name}")
 def preview_audio(name: str):
     voices = models.list_voices()
-    allowed = {f"demo-{v['id']}.wav" for v in voices}
+    allowed = {f"{v['id']}.wav" for v in voices} | {f"demo-{v['id']}.wav" for v in voices}
     if name not in allowed:
         raise HTTPException(404)
-    p = PREVIEW_DIR / name
+    bundled = ENGINE_DIR / "assets" / "previews" / name
+    p = bundled if bundled.is_file() else PREVIEW_DIR / name
     if not p.is_file():
         raise HTTPException(404)
     return FileResponse(p, media_type="audio/wav", headers={"Cache-Control": "no-store"})

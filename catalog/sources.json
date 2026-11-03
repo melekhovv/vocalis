@@ -1,30 +1,114 @@
 {
-  "checkedAt": "2026-11-03",
-  "summary": "Единый каталог: русскоязычная подборка и публичный поиск Hugging Face. Модели скачиваются отдельно по условиям источников; лицензия и происхождение показываются без выдуманного подтверждения прав. Обязательное ограничение CC0 отменено владельцем.",
+  "checkedAt": "2026-11-01T14:26:09.069325+00:00",
+  "summary": "Приоритет — понятная русская речь. Проверяем язык, совместимость и сохранение слов в потоковом режиме. Число эпох само по себе не является оценкой качества.",
   "sources": [
     {
-      "id": "rvc-ru",
-      "name": "RVC-RU — русскоязычные модели",
-      "url": "https://huggingface.co/RVC-RU/RVC-Nyamura-RU",
-      "kind": "Источник моделей",
-      "notes": "Автор Nyamura указывает подготовку под русскую речь. Файлы загружаются непосредственно из Hugging Face; условия и известные ограничения показаны в карточке.",
+      "id": "hf-russian",
+      "name": "Hugging Face — русские модели",
+      "url": "https://huggingface.co/models?search=RVC&language=ru",
+      "kind": "Каталог весов",
+      "notes": "Язык и доступность проверяем в файлах автора, а не по одному названию.",
       "httpStatus": 200
     },
     {
-      "id": "cc0",
-      "name": "CC0 — условия общественного достояния",
-      "url": "https://creativecommons.org/publicdomain/zero/1.0/",
-      "kind": "Условия использования",
-      "notes": "CC0 разрешает копирование и распространение без отдельного разрешения. Не отменяет права других лиц.",
+      "id": "warlock",
+      "name": "Warlock700 — игровые голоса",
+      "url": "https://huggingface.co/Warlock700",
+      "kind": "Автор моделей",
+      "notes": "Коллекции игровых моделей: S.T.A.L.K.E.R., Warcraft III и Metro. Новые голоса сначала проходят проверку.",
+      "httpStatus": 200
+    },
+    {
+      "id": "player1444",
+      "name": "Player1444 — русский дубляж",
+      "url": "https://huggingface.co/Player1444/AI.models",
+      "kind": "Автор моделей",
+      "notes": "Проверяем русские варианты и подходящую версию предобучения.",
+      "httpStatus": 200
+    },
+    {
+      "id": "witcher",
+      "name": "Rootreck / ll2pakll — «Ведьмак 3»",
+      "url": "https://huggingface.co/Rootreck/so-vits-svc-4.0-ru-The_Witcher_3_Wild_Hunt/discussions/5",
+      "kind": "Публикация автора",
+      "notes": "Игровые данные и обсуждение качества RVC-версий Геральта.",
+      "httpStatus": 200
+    },
+    {
+      "id": "aivoices",
+      "name": "AI Voices — русские модели",
+      "url": "https://aivoices.gg/languages/russian",
+      "kind": "Поиск кандидатов",
+      "notes": "Ссылки перепроверяем у авторов. Оценка в каталоге не доказывает качество речи.",
+      "httpStatus": 200
+    },
+    {
+      "id": "voice-models",
+      "name": "Voice Models",
+      "url": "https://voice-models.com/",
+      "kind": "Поиск кандидатов",
+      "notes": "Проверяем исходные ссылки, язык озвучки и реальные веса.",
       "httpStatus": 200
     },
     {
       "id": "applio",
-      "name": "Applio — документация RVC",
-      "url": "https://docs.applio.org/getting-started/installing-inference-models/",
-      "kind": "Совместимость моделей",
-      "notes": "Используйте экспорт RVC v1/v2 для инференса и соответствующий индекс.",
+      "name": "Applio — движок и документация",
+      "url": "https://docs.applio.org/reference/glossary/",
+      "kind": "Технический источник",
+      "notes": "Совместимость моделей, перенос тембра и защита согласных.",
+      "httpStatus": 200
+    },
+    {
+      "id": "aihub",
+      "name": "AI Hub — настройки RVC",
+      "url": "https://docs.aihub.gg/rvc/resources/inference-settings/",
+      "kind": "Технический источник",
+      "notes": "Настройки разборчивости и работа с согласными.",
       "httpStatus": 200
     }
-  ]
+  ],
+  "voiceReview": [
+    {
+      "id": "spongebob-ru",
+      "sourceStatus": 200,
+      "pinnedRevision": "2a4485394874ee12039b5393641ec9e6eb388ab9",
+      "upstreamRevision": "2a4485394874ee12039b5393641ec9e6eb388ab9",
+      "upstreamModified": "2023-09-05T19:10:48.000Z",
+      "changedFiles": [],
+      "missingFiles": [],
+      "status": "current"
+    },
+    {
+      "id": "shrek-ru",
+      "sourceStatus": 200,
+      "pinnedRevision": "a4961562e97afa237098d7ae7d74ce8354d294e0",
+      "upstreamRevision": "a4961562e97afa237098d7ae7d74ce8354d294e0",
+      "upstreamModified": "2023-08-13T07:00:40.000Z",
+      "changedFiles": [],
+      "missingFiles": [],
+      "status": "current"
+    }
+  ],
+  "recoveryMetadata": {
+    "targetVersion": "0.1.5",
+    "status": "reconstructed-from-historical-metadata",
+    "notes": [
+      "All eight source entries, order, descriptions and historical HTTP 200 statuses come from the saved generator and REGISTRY output; no fresh website checks.",
+      "checkedAt is exact from saved output at session lines 1042/1074.",
+      "voiceReview contains only completely recoverable historical objects; the rest of the historical review was truncated. No missing review dates or revisions were invented.",
+      "JSON formatting and this recoveryMetadata object are newly generated."
+    ],
+    "missingVoiceReviewIds": [
+      "sonic-ru",
+      "pudge-ru",
+      "invoker-ru",
+      "treant-ru",
+      "witch-doctor-ru",
+      "burunov-ru",
+      "geralt-kuznetsov-ru",
+      "deadpool-ru",
+      "optimus-prime-ru",
+      "shrek-alt-ru"
+    ]
+  }
 }
