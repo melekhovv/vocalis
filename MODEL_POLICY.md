@@ -28,4 +28,4 @@
 
 ContentVec/RMVPE/FCPE — технические зависимости, а не целевые голоса. Они скачиваются отдельно с сохранением своих лицензий; их правила и закреплённые файлы этим решением не меняются.
 
-Проверенные русскоязычные источники и ограничения: [docs/RUSSIAN_VOICE_SOURCES.md](docs/RUSSIAN_VOICE_SOURCES.md). История первоначального исследования по старой CC0-политике: [docs/VOICE_SOURCES.md](docs/VOICE_SOURCES.md). Сведения сторонних компонентов: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+Проверенные русскоязычные источники и ограничения: [docs/RUSSIAN_VOICE_SOURCES.md](docs/RUSSIAN_VOICE_SOURCES.md). Сведения сторонних компонентов: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).

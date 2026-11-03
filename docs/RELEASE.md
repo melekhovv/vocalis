@@ -97,7 +97,7 @@ powershell -NoProfile -File scripts/export-source.ps1 -DestinationDirectory 'D:\
 Состав: `app/src`, тесты приложения, конфигурации и lockfile, иконки и notices;
 `engine/vcengine`, `vendor` с лицензией, тесты, профили и lockfiles; PowerShell
 скрипты и `check_release.py`; `docs`, `catalog`, `.github` при наличии;
-`AGENTS.md`, `.codex/agents`, корневые Markdown-документы, LICENSE и Git-ignore
+корневые Markdown-документы, LICENSE и Git-ignore
 правила. Старые локальные Python-скрипты приобретения моделей не экспортируются,
 как предусмотрено `.gitignore`.
 

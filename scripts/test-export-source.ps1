@@ -18,8 +18,7 @@ function Assert-Rejected([scriptblock]$Action) {
     Assert-True $rejected 'Expected export to reject unsafe source/destination'
 }
 try {
-    $required = @('AGENTS.md', 'README.md', 'LICENSE', 'MODEL_POLICY.md', 'THIRD_PARTY_LICENSES.md', 'app/package.json', 'app/package-lock.json', 'app/electron-builder.yml', 'app/electron.vite.config.ts', 'app/tsconfig.json', 'engine/pyproject.toml', 'engine/uv.lock', 'engine/vcengine/__init__.py', 'scripts/setup-app.ps1', 'scripts/setup-engine.ps1', 'scripts/build.ps1', 'scripts/_common.ps1', 'scripts/clean-releases.ps1', 'scripts/check_release.py', 'docs/ARCHITECTURE.md', 'docs/TESTING.md', 'docs/TEAM.md', 'catalog/voices.json', 'catalog/sources.json')
-    foreach ($profile in @('audio_engineer', 'app_developer', 'ux_designer', 'release_engineer', 'voice_specialist', 'qa_engineer')) { $required += ".codex/agents/$profile.toml" }
+    $required = @('README.md', 'LICENSE', 'MODEL_POLICY.md', 'THIRD_PARTY_LICENSES.md', 'app/package.json', 'app/package-lock.json', 'app/electron-builder.yml', 'app/electron.vite.config.ts', 'app/tsconfig.json', 'engine/pyproject.toml', 'engine/uv.lock', 'engine/vcengine/__init__.py', 'scripts/setup-app.ps1', 'scripts/setup-engine.ps1', 'scripts/build.ps1', 'scripts/_common.ps1', 'scripts/clean-releases.ps1', 'scripts/check_release.py', 'docs/ARCHITECTURE.md', 'docs/TESTING.md', 'catalog/voices.json', 'catalog/sources.json')
     foreach ($relative in $required) { Write-Fixture $relative }
     Write-Fixture 'app/package.json' '{"version":"0.2.3"}'
     Write-Fixture 'app/src/new-untracked.ts' 'export const value = 1'
@@ -35,7 +34,6 @@ try {
 
     $result = & $exportScript -SourceDirectory $fixture -DestinationDirectory $destination
     Assert-True (Test-Path -LiteralPath (Join-Path $destination 'app/src/new-untracked.ts')) 'Untracked source was omitted'
-    Assert-True (Test-Path -LiteralPath (Join-Path $destination '.codex/agents/qa_engineer.toml')) 'Agent configuration omitted'
     foreach ($excluded in @('.git', '.env', 'app/node_modules', 'app/out', 'app/release', 'app/build/bin', 'app/tests/out', 'app/src/recording.wav', 'app/src/private.key', 'engine/.venv', 'engine/assets', 'engine/vcengine/__pycache__', 'engine/tests/out', 'scripts/acquire-private-models.py', '.export-incomplete')) {
         Assert-True (-not (Test-Path -LiteralPath (Join-Path $destination $excluded))) "Excluded content exported: $excluded"
     }

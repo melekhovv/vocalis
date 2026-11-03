@@ -28,7 +28,7 @@ Assert-NoReparse $requestedDestination
 
 # Explicitly select source subtrees. Never walk the project root, .git, local
 # storage, runtime environments, research/acquisition folders, or build output.
-$trees = @('app/src', 'app/tests', 'engine/vcengine', 'engine/vendor', 'engine/tests', 'engine/profiles', 'docs', 'catalog', '.github', '.codex/agents')
+$trees = @('app/src', 'app/tests', 'engine/vcengine', 'engine/vendor', 'engine/tests', 'engine/profiles', 'docs', 'catalog', '.github')
 $singleFiles = @('LICENSE', '.gitignore', '.gitattributes', 'app/package.json', 'app/package-lock.json', 'app/components.json', 'app/.oxlintrc.json', 'app/electron-builder.yml', 'app/electron.vite.config.ts', 'app/tsconfig.json', 'app/build/icon.ico', 'app/build/icon.png', 'app/build/license.txt', 'app/build/THIRD_PARTY_NOTICES.txt', 'app/build/make_icon.py', 'engine/pyproject.toml', 'engine/uv.lock')
 $allowedExtensions = @('.py', '.ts', '.tsx', '.js', '.cjs', '.mjs', '.css', '.html', '.svg', '.json', '.toml', '.lock', '.md', '.txt', '.yml', '.yaml', '.ps1', '.psm1', '.sh')
 $forbiddenSegments = '^(?:\.git|node_modules|\.?venv|\.qa-venv|__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache|\.cache|cache|caches|out|output|release|dist|build|assets|models|model-downloads|recordings|audio|samples|secrets|credentials|preview-test-.*|qa-.*|research-.*|\.build-.*)$'
@@ -70,8 +70,7 @@ if (Test-Path -LiteralPath (Join-Path $sourceRoot 'scripts') -PathType Container
     Add-SourceFile 'scripts/check_release.py'
 }
 
-$required = @('AGENTS.md', 'README.md', 'LICENSE', 'MODEL_POLICY.md', 'THIRD_PARTY_LICENSES.md', 'app/package.json', 'app/package-lock.json', 'app/electron-builder.yml', 'app/electron.vite.config.ts', 'app/tsconfig.json', 'engine/pyproject.toml', 'engine/uv.lock', 'engine/vcengine/__init__.py', 'scripts/setup-app.ps1', 'scripts/setup-engine.ps1', 'scripts/build.ps1', 'scripts/_common.ps1', 'scripts/clean-releases.ps1', 'scripts/check_release.py', 'docs/ARCHITECTURE.md', 'docs/TESTING.md', 'docs/TEAM.md', 'catalog/voices.json', 'catalog/sources.json')
-foreach ($profile in @('audio_engineer', 'app_developer', 'ux_designer', 'release_engineer', 'voice_specialist', 'qa_engineer')) { $required += ".codex/agents/$profile.toml" }
+$required = @('README.md', 'LICENSE', 'MODEL_POLICY.md', 'THIRD_PARTY_LICENSES.md', 'app/package.json', 'app/package-lock.json', 'app/electron-builder.yml', 'app/electron.vite.config.ts', 'app/tsconfig.json', 'engine/pyproject.toml', 'engine/uv.lock', 'engine/vcengine/__init__.py', 'scripts/setup-app.ps1', 'scripts/setup-engine.ps1', 'scripts/build.ps1', 'scripts/_common.ps1', 'scripts/clean-releases.ps1', 'scripts/check_release.py', 'docs/ARCHITECTURE.md', 'docs/TESTING.md', 'catalog/voices.json', 'catalog/sources.json')
 $selectedPaths = @($paths | Sort-Object -Unique)
 foreach ($relative in $required) { if ($relative -notin $selectedPaths) { throw "Required source file is missing: $relative" } }
 
