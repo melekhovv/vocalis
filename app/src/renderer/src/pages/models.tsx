@@ -62,7 +62,7 @@ export function ModelsPage() {
               {base.ready ? (
                 <Badge variant="outline" className="border-live/30 bg-live/10 text-live">Установлены</Badge>
               ) : (
-                <Button size="sm" disabled={!!baseJob} onClick={() => api.downloadBase()}>
+                <Button size="sm" disabled={!!baseJob} onClick={() => api.downloadBase().catch((e) => toast.error('Не удалось начать загрузку', { description: e.message }))}>
                   {baseJob ? <Loader2 className="animate-spin" /> : <Download />} Загрузить
                 </Button>
               )}
@@ -184,7 +184,7 @@ function ModelRow({ v, onDelete }: { v: Voice; onDelete: () => void }) {
               {verifying ? <Loader2 className="animate-spin" /> : <ShieldCheck />}
             </Button>
             {v.status === 'corrupted' && !v.custom && (
-              <Button variant="ghost" size="icon" className="size-8" onClick={() => api.download(v.id)} title="Загрузить заново">
+              <Button variant="ghost" size="icon" className="size-8" onClick={() => api.download(v.id).catch((e) => toast.error('Не удалось начать загрузку', { description: e.message }))} title="Загрузить заново">
                 <Download />
               </Button>
             )}
@@ -193,7 +193,7 @@ function ModelRow({ v, onDelete }: { v: Voice; onDelete: () => void }) {
             </Button>
           </>
         ) : v.status === 'downloading' ? (
-          <Button variant="ghost" size="icon" className="size-8" onClick={() => api.cancel(v.id)} title="Отменить">
+          <Button variant="ghost" size="icon" className="size-8" onClick={() => api.cancel(v.id).catch((e) => toast.error('Не удалось отменить загрузку', { description: e.message }))} title="Отменить">
             <X />
           </Button>
         ) : (

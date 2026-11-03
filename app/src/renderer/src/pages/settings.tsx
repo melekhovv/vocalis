@@ -210,7 +210,7 @@ function VirtualTab() {
             <RefreshCw className={loading ? 'animate-spin' : ''} /> Проверить снова
           </Button>
           {cableIn && !routed && (
-            <Button size="sm" onClick={() => api.setDevices({ output: cableIn.id }).then(() => toast.success('Вывод направлен в CABLE Input'))}>
+            <Button size="sm" onClick={() => api.setDevices({ output: cableIn.id }).then(() => toast.success('Вывод направлен в CABLE Input')).catch((e) => toast.error('Не удалось выбрать устройство', { description: e.message }))}>
               Направить вывод в CABLE Input
             </Button>
           )}
@@ -323,7 +323,7 @@ function PerformanceTab() {
   return (
     <div className="space-y-5">
       <Section title="Режим качества / производительности" description="Размер блока определяет основную часть задержки. Нейросеть должна успевать обработать блок быстрее, чем он длится.">
-        <ToggleGroup type="single" variant="outline" value={e.preset} onValueChange={(v) => v && api.preset(v as Preset)} className="w-full">
+        <ToggleGroup type="single" variant="outline" value={e.preset} onValueChange={(v) => v && api.preset(v as Preset).catch((err) => toast.error('Не удалось сменить режим', { description: err.message }))} className="w-full">
           {(Object.keys(PRESET_LABELS) as Preset[]).map((k) => (
             <ToggleGroupItem key={k} value={k} className="h-auto flex-1 flex-col items-start gap-0.5 px-3 py-2.5 text-left">
               <span className="text-sm font-medium">{PRESET_LABELS[k]}</span>
@@ -334,8 +334,8 @@ function PerformanceTab() {
       </Section>
       <Section title="Аппаратное ускорение">
         <Row label="Вычислительное устройство" hint={sys?.hardware.cuda ? `Обнаружено: ${sys.hardware.gpu} · CUDA ${sys.hardware.cudaVersion}` : 'CUDA-совместимая видеокарта NVIDIA не обнаружена'}>
-          <ToggleGroup type="single" variant="outline" value={e.compute} onValueChange={(v) => v && api.compute(v as 'auto' | 'cpu')}>
-            <ToggleGroupItem value="auto" className="px-3 text-xs"><Zap className="size-3.5" /> GPU (CUDA)</ToggleGroupItem>
+          <ToggleGroup type="single" variant="outline" value={e.compute} onValueChange={(v) => v && api.compute(v as 'auto' | 'cpu').catch((err) => toast.error('Не удалось сменить устройство вычислений', { description: err.message }))}>
+            <ToggleGroupItem value="auto" className="px-3 text-xs"><Zap className="size-3.5" /> Авто (CUDA / CPU)</ToggleGroupItem>
             <ToggleGroupItem value="cpu" className="px-3 text-xs"><Cpu className="size-3.5" /> Только CPU</ToggleGroupItem>
           </ToggleGroup>
         </Row>

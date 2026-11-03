@@ -19,6 +19,6 @@ Python, PyTorch, torchaudio, NumPy, SciPy, sounddevice/PortAudio, libsndfile, FA
 
 The pinned source mirror for ContentVec, its config, RMVPE and FCPE is [IAHispano/Applio](https://huggingface.co/IAHispano/Applio/tree/3ff370b7023086f57e200ef86a9a251ddf4da472), whose model card declares MIT. Per-file source URLs, sizes and available SHA-256 values are in `catalog/voices.json`. These technical assets are not CC0 target voices and are not included in Git or the installer. Upstream projects: [ContentVec](https://github.com/auspicious3000/contentvec), [RMVPE](https://github.com/Dream-High/RMVPE), [FCPE](https://github.com/CNChTu/FCPE).
 
-## Excluded materials
+## Voice examples and user materials
 
-No third-party target-voice weights, indexes, character images or converted voice examples are shipped. No training datasets or microphone recordings are published. User-selected models/audio remain local and are not relicensed by Vocalis. See `MODEL_POLICY.md`.
+Target-voice weights and indexes are not included in the installer. The installer includes a short Russian demo clip and the local catalog's prerecorded voice previews from `engine/assets`; these examples retain the rights of their original authors and are not relicensed by Vocalis. Source and license information for catalog voices is recorded in `catalog/voices.json`. No training datasets or user microphone recordings are published. User-selected models/audio remain local. See `MODEL_POLICY.md`.

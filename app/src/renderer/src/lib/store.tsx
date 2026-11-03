@@ -52,6 +52,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!info || info.state !== 'ready') {
       setConnected(false)
+      setStatus(null)
+      setLevels({ input: [], output: [] })
       return
     }
     configureApi(info.port, info.token)
@@ -60,12 +62,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const connect = () => {
       const ws = new WebSocket(wsUrl())
       wsRef.current = ws
-      ws.onopen = () => setConnected(true)
+      ws.onopen = () => { if (!closed) setConnected(true) }
       ws.onclose = () => {
+        if (closed) return
         setConnected(false)
-        if (!closed) retry = setTimeout(connect, 1000)
+        setStatus(null)
+        retry = setTimeout(connect, 1000)
       }
       ws.onmessage = (ev) => {
+        if (closed) return
         const msg: StatusMessage = JSON.parse(ev.data)
         setStatus(msg)
         if (msg.voices) setVoices(msg.voices)
@@ -104,7 +109,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (id: string) => {
       if (!settings) return
       const fav = settings.favorites.includes(id) ? settings.favorites.filter((x) => x !== id) : [...settings.favorites, id]
-      updateSettings({ favorites: fav })
+      updateSettings({ favorites: fav }).catch((e) => toast.error('Не удалось сохранить избранное', { description: (e as Error).message }))
     },
     [settings, updateSettings],
   )

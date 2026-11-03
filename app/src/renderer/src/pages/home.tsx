@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { Power, Loader2, Mic, Speaker, Headphones, Library, TriangleAlert, Gauge, Wand2, Cable } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -129,7 +130,7 @@ function QuickSettings() {
         variant="outline"
         className="w-full"
         value={e.preset}
-        onValueChange={(v) => v && api.preset(v as Preset)}
+        onValueChange={(v) => v && api.preset(v as Preset).catch((e) => toast.error('Не удалось сменить режим', { description: e.message }))}
       >
         {(Object.keys(PRESET_LABELS) as Preset[]).map((k) => (
           <ToggleGroupItem key={k} value={k} className="flex-1 text-xs">

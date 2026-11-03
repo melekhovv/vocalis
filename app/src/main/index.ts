@@ -45,10 +45,25 @@ const DEFAULT_SETTINGS: AppSettings = {
 const settingsFile = () => join(app.getPath('userData'), 'settings.json')
 let settings: AppSettings = DEFAULT_SETTINGS
 
+function normalizeSettings(raw: unknown, base: AppSettings = DEFAULT_SETTINGS): AppSettings {
+  const value = raw && typeof raw === 'object' ? raw as Partial<AppSettings> : {}
+  const result = { ...base, hotkeys: { ...base.hotkeys } }
+  for (const key of ['closeToTray', 'autostart', 'startMinimized', 'acceptedNotice', 'quickSwitchFavoritesOnly'] as const) {
+    if (typeof value[key] === 'boolean') result[key] = value[key]
+  }
+  for (const key of ['favorites', 'recent'] as const) {
+    if (Array.isArray(value[key])) result[key] = [...new Set(value[key].filter((id): id is string => typeof id === 'string'))]
+  }
+  for (const key of Object.keys(base.hotkeys) as HotkeyAction[]) {
+    if (typeof value.hotkeys?.[key] === 'string') result.hotkeys[key] = value.hotkeys[key]
+  }
+  return result
+}
+
 function loadSettings() {
   try {
     const raw = JSON.parse(readFileSync(settingsFile(), 'utf-8'))
-    settings = { ...DEFAULT_SETTINGS, ...raw, hotkeys: { ...DEFAULT_SETTINGS.hotkeys, ...(raw.hotkeys || {}) } }
+    settings = normalizeSettings(raw)
   } catch {
     settings = { ...DEFAULT_SETTINGS }
   }
@@ -73,6 +88,7 @@ const uvExe = isDev
 
 const token = randomBytes(24).toString('base64url')
 let engineProc: ChildProcess | null = null
+let setupProc: ChildProcess | null = null
 let enginePort = 0
 let engineState: EngineState = 'starting'
 let engineLog: string[] = []
@@ -95,7 +111,7 @@ function engineInfo() {
 }
 
 function startEngine() {
-  if (engineProc || quitting) return
+  if (engineProc || setupProc || quitting) return
   if (!existsSync(pythonExe)) {
     setEngineState('needs-setup')
     return
@@ -148,7 +164,7 @@ function startEngine() {
 }
 
 function setupEngine() {
-  if (engineState === 'installing') return
+  if (setupProc || engineProc || quitting) return
   if (!existsSync(uvExe)) {
     pushLog(`uv не найден: ${uvExe}`)
     setEngineState('needs-setup')
@@ -168,14 +184,22 @@ function setupEngine() {
     },
     windowsHide: true,
   })
+  setupProc = proc
   const onData = (chunk: Buffer) => {
     chunk.toString('utf-8').split(/[\r\n]+/).filter(Boolean).forEach(pushLog)
     win?.webContents.send('engine:state', engineInfo())
   }
   proc.stdout?.on('data', onData)
   proc.stderr?.on('data', onData)
-  proc.on('error', (error) => { pushLog(error.message); setEngineState('needs-setup') })
+  proc.on('error', (error) => {
+    if (setupProc !== proc) return
+    setupProc = null
+    if (!quitting) { pushLog(error.message); setEngineState('needs-setup') }
+  })
   proc.on('exit', (code) => {
+    if (setupProc !== proc) return
+    setupProc = null
+    if (quitting) return
     if (code === 0) startEngine()
     else {
       pushLog(`[установка завершилась с кодом ${code}]`)
@@ -187,6 +211,7 @@ function setupEngine() {
 async function engineFetch(path: string, body?: unknown) {
   if (engineState !== 'ready') throw new Error('engine not ready')
   const r = await fetch(`http://127.0.0.1:${enginePort}${path}`, {
+    signal: AbortSignal.timeout(path === '/shutdown' ? 3000 : 60000),
     method: body === undefined ? 'GET' : 'POST',
     headers: { 'X-Vocalis-Token': token, 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -216,7 +241,7 @@ async function runAction(action: HotkeyAction) {
       }
       if (!ready.length) return
       const cur = ready.indexOf(e.voiceId)
-      const next = ready[(cur + (action === 'next' ? 1 : -1) + ready.length) % ready.length]
+      const next = ready[cur < 0 ? (action === 'next' ? 0 : ready.length - 1) : (cur + (action === 'next' ? 1 : -1) + ready.length) % ready.length]
       await engineFetch('/engine/voice', { id: next })
       rememberRecent(next)
     }
@@ -283,6 +308,7 @@ function createWindow() {
       win?.hide()
     }
   })
+  win.on('closed', () => { win = null })
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//.test(url)) shell.openExternal(url)
     return { action: 'deny' }
@@ -310,7 +336,9 @@ function createTray() {
 }
 
 async function quit() {
+  if (quitting) return
   quitting = true
+  setupProc?.kill()
   try {
     if (engineState === 'ready') await engineFetch('/shutdown', {})
   } catch {
@@ -327,13 +355,14 @@ function registerIpc() {
   ipcMain.handle('engine:info', () => engineInfo())
   ipcMain.handle('engine:setup', () => setupEngine())
   ipcMain.handle('engine:restart', () => {
+    if (setupProc || quitting) return
     restarts = 0
     if (engineProc) engineProc.kill()
     else startEngine()
   })
   ipcMain.handle('settings:get', () => settings)
   ipcMain.handle('settings:set', (_e, patch: Partial<AppSettings>) => {
-    settings = { ...settings, ...patch, hotkeys: { ...settings.hotkeys, ...(patch.hotkeys || {}) } }
+    settings = normalizeSettings(patch, settings)
     saveSettings()
     let hotkeyErrors = {}
     if (patch.hotkeys) hotkeyErrors = applyHotkeys()
@@ -436,6 +465,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('will-quit', () => globalShortcut.unregisterAll())
   app.on('before-quit', () => {
     quitting = true
+    setupProc?.kill()
     engineProc?.kill()
   })
   app.on('window-all-closed', () => {

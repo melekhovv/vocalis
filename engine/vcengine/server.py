@@ -65,24 +65,40 @@ def load_settings():
     if SETTINGS_FILE.exists():
         try:
             data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
+        except (OSError, ValueError):
             data = {}
-    for k, v in (data.get("params") or {}).items():
-        if k in engine.params:
-            engine.params[k] = v
-    if data.get("preset") in audio_mod.PRESETS:
+    if not isinstance(data, dict):
+        data = {}
+    params = data.get("params")
+    if isinstance(params, dict):
+        # Filter damaged fields without applying per-field side effects. Restore
+        # the valid patch together so clarity_mode cannot reset saved timbre.
+        valid = {}
+        for key, value in params.items():
+            try:
+                engine.validate_params({key: value})
+                valid[key] = value
+            except (ValueError, TypeError):
+                pass
+        engine.update_params(valid)
+    if isinstance(data.get("preset"), str) and data["preset"] in audio_mod.PRESETS:
         engine.preset = data["preset"]
-    engine.compute = data.get("compute", "auto")
+    engine.compute = "cpu" if data.get("compute") == "cpu" else "auto"
 
     def find(names_list, name):
         return next((d["id"] for d in names_list if d["name"] == name), None)
 
-    saved = data.get("devices") or {}
-    engine.devices["input"] = find(devs["inputs"], saved.get("input")) or devs["defaultInput"]
-    engine.devices["output"] = find(devs["outputs"], saved.get("output")) or devs["virtualCable"] or devs["defaultOutput"]
-    engine.devices["monitor"] = find(devs["outputs"], saved.get("monitor")) or devs["defaultOutput"]
+    saved = data.get("devices")
+    if not isinstance(saved, dict):
+        saved = {}
+
+    def first_device(*choices):
+        return next((value for value in choices if value is not None), None)
+    engine.devices["input"] = first_device(find(devs["inputs"], saved.get("input")), devs["defaultInput"])
+    engine.devices["output"] = first_device(find(devs["outputs"], saved.get("output")), devs["virtualCable"], devs["defaultOutput"])
+    engine.devices["monitor"] = first_device(find(devs["outputs"], saved.get("monitor")), devs["defaultOutput"])
     vid = data.get("voiceId")
-    if vid in {v["id"] for v in models.list_voices()}:
+    if isinstance(vid, str) and vid in {v["id"] for v in models.list_voices()}:
         try:
             models.voice_paths(vid)
             engine.voice_id = vid

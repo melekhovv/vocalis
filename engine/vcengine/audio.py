@@ -227,6 +227,7 @@ class _Fifo:
         with self.lock:
             self.buf.clear()
             self.size = 0
+            self.primed = False
 
 
 class AudioEngine:
@@ -242,6 +243,7 @@ class AudioEngine:
         self.devices = {"input": None, "output": None, "monitor": None}
         self.vc = None
         self.streams = []
+        self._streams_lock = threading.RLock()
         self.in_q = queue.Queue(maxsize=3)
         self.out_fifo = None
         self.mon_fifo = None
@@ -263,8 +265,9 @@ class AudioEngine:
         }
 
     # ------------------------------------------------------------ control
-    def update_params(self, changes: dict):
-        # Validate the entire patch before applying any values.
+    @staticmethod
+    def validate_params(changes: dict):
+        # Validation has no side effects, including when recovering settings.
         limits = {"pitch": (-24, 24), "index_rate": (0, 1), "protect": (0, .5),
                   "noise_gate_db": (-120, 0), "input_gain": (0, 3), "output_gain": (0, 3),
                   "monitor_gain": (0, 2), "volume_envelope": (0, 1), "ptt_vk": (1, 254)}
@@ -283,6 +286,8 @@ class AudioEngine:
                     raise ValueError(f"{key}: значение вне диапазона")
             if key == "f0_method" and value not in ("rmvpe", "fcpe", "crepe"):
                 raise ValueError("Неподдерживаемый метод F0")
+    def update_params(self, changes: dict):
+        self.validate_params(changes)
         if changes.get("clarity_mode") is False:
             voice = next((v for v in self.models.list_voices() if v["id"] == self.voice_id), {})
             profile = voice.get("recommendedParams") or {}
@@ -359,6 +364,8 @@ class AudioEngine:
         self.on_state()
 
     def start(self):
+        if self.worker is not None and self.worker.is_alive() and self.stop_evt.is_set():
+            raise RuntimeError("Предыдущая обработка ещё завершается. Повторите запуск через несколько секунд.")
         if self.state in ("running", "loading"):
             return
         if not self.voice_id:
@@ -381,8 +388,13 @@ class AudioEngine:
         w = self.worker
         if w and w.is_alive() and w is not threading.current_thread():
             w.join(timeout=5)
-        self.worker = None
-        self._release_vc()
+        # Never release a model while the worker is still warming it up or
+        # using it. The worker performs deferred cleanup before it exits.
+        if not w or not w.is_alive():
+            self.worker = None
+            self._release_vc()
+        with self.lock:
+            self._cfg_queue = []
         self.state = "stopped"
         self.stats = self._empty_stats()
         self.on_state()
@@ -415,6 +427,12 @@ class AudioEngine:
         return vc
 
     def _open_streams(self):
+        with self._streams_lock:
+            if self.stop_evt.is_set():
+                return
+            self._open_streams_unlocked()
+
+    def _open_streams_unlocked(self):
         p = PRESETS[self.preset]
         block = p["block_frame"]
         prime = int(JITTER_S * SR)
@@ -471,25 +489,37 @@ class AudioEngine:
                 outdata[:] = x[:, None]
             return cb
 
-        streams = [
-            sd.InputStream(device=in_dev, samplerate=SR, blocksize=480, channels=in_ch, dtype="float32",
-                           latency="low", callback=in_cb, extra_settings=_extra(in_dev)),
-            sd.OutputStream(device=out_dev, samplerate=SR, blocksize=0, channels=out_ch, dtype="float32",
-                            latency="low", callback=make_out_cb(self.out_fifo, "output_gain"), extra_settings=_extra(out_dev)),
-        ]
-        if self.params["monitor"] and mon_dev is not None:
-            mon_ch = min(2, sd.query_devices(mon_dev)["max_output_channels"])
-            streams.append(sd.OutputStream(device=mon_dev, samplerate=SR, blocksize=0, channels=mon_ch, dtype="float32",
-                                           latency="low", callback=make_out_cb(self.mon_fifo, "monitor_gain"),
-                                           extra_settings=_extra(mon_dev)))
-        for s in streams:
-            s.start()
+        # Register each stream immediately: constructing or starting a later
+        # device can fail, and all previously opened handles must be closed.
+        streams = []
         self.streams = streams
+        try:
+            streams.append(sd.InputStream(
+                device=in_dev, samplerate=SR, blocksize=480, channels=in_ch, dtype="float32",
+                latency="low", callback=in_cb, extra_settings=_extra(in_dev)))
+            streams.append(sd.OutputStream(
+                device=out_dev, samplerate=SR, blocksize=0, channels=out_ch, dtype="float32",
+                latency="low", callback=make_out_cb(self.out_fifo, "output_gain"), extra_settings=_extra(out_dev)))
+            if self.params["monitor"] and mon_dev is not None:
+                mon_ch = min(2, sd.query_devices(mon_dev)["max_output_channels"])
+                streams.append(sd.OutputStream(
+                    device=mon_dev, samplerate=SR, blocksize=0, channels=mon_ch, dtype="float32",
+                    latency="low", callback=make_out_cb(self.mon_fifo, "monitor_gain"),
+                    extra_settings=_extra(mon_dev)))
+            for stream in streams:
+                stream.start()
+        except Exception:
+            self._close_streams()
+            raise
         lat = streams[0].latency + streams[1].latency
         self.stats["streamLatencyMs"] = lat * 1000
         self.stats["blockMs"] = block / SR * 1000
 
     def _close_streams(self):
+        with self._streams_lock:
+            self._close_streams_unlocked()
+
+    def _close_streams_unlocked(self):
         streams, self.streams = self.streams, []
         for s in streams:
             try:
@@ -513,7 +543,8 @@ class AudioEngine:
         self.state = "error"
         self.stop_evt.set()
         self._close_streams()
-        self._release_vc()
+        if not self.worker or not self.worker.is_alive() or self.worker is threading.current_thread():
+            self._release_vc()
         self.on_state()
 
     def _release_vc(self):
@@ -543,6 +574,14 @@ class AudioEngine:
 
     def _run(self):
         try:
+            self._process()
+        finally:
+            if self.stop_evt.is_set():
+                self._close_streams()
+                self._release_vc()
+
+    def _process(self):
+        try:
             self.vc = self._build_vc()
             self.device_name = str(self.vc.device)
             self.stats["device"] = self.device_name
@@ -550,10 +589,14 @@ class AudioEngine:
             self.vc = None
             self._fail(f"Не удалось загрузить модель: {e}")
             return
+        if self.stop_evt.is_set():
+            return
         try:
             self._open_streams()
         except Exception as e:
             self._fail(f"Не удалось открыть аудиоустройство: {e}")
+            return
+        if self.stop_evt.is_set():
             return
         self.state = "running"
         self.on_state()

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { AudioLines, Boxes, Cpu, Library, Settings, Star, History, Loader2, TriangleAlert, Download } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -174,7 +175,7 @@ function BaseAssetsBanner() {
         {job && <Progress value={job.progress * 100} className="mt-2 h-1" />}
         {b.job?.stage === 'error' && <div className="mt-1 text-xs text-destructive">{b.job.error}</div>}
       </div>
-      <Button size="sm" disabled={!!job} onClick={() => api.downloadBase()}>
+      <Button size="sm" disabled={!!job} onClick={() => api.downloadBase().catch((e) => toast.error('Не удалось начать загрузку', { description: e.message }))}>
         {job ? `${Math.round(job.progress * 100)}%` : 'Загрузить'}
       </Button>
     </div>

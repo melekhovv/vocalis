@@ -9,6 +9,14 @@ files:
   - package.json
 asar: true
 extraResources:
+  - from: build/THIRD_PARTY_NOTICES.txt
+    to: licenses/THIRD_PARTY_NOTICES.txt
+  - from: ../LICENSE
+    to: licenses/LICENSE
+  - from: ../THIRD_PARTY_LICENSES.md
+    to: licenses/THIRD_PARTY_LICENSES.md
+  - from: ../MODEL_POLICY.md
+    to: licenses/MODEL_POLICY.md
   # Engine sources + lockfile; the Python runtime itself (~4 GB with CUDA
   # PyTorch) is installed on first launch by uv into %LOCALAPPDATA%\Vocalis.
   - from: ../engine/vcengine
