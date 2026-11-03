@@ -25,10 +25,12 @@ SOFTWARE.
 Third-party components retain their own licenses. See the installed licenses
 folder, THIRD_PARTY_LICENSES.md and THIRD_PARTY_NOTICES.txt.
 
-No target-voice models, training datasets or third-party audio examples are
-included in this release. Shared RVC assets are downloaded separately, on
-request, under their upstream terms. User-imported files remain local and
-are not relicensed by Vocalis. See MODEL_POLICY.md in the source repository.
+No target-voice weights, recordings or converted speech examples are bundled.
+Local previews use the installed Windows speech voice and the selected RVC
+model. Public catalog metadata does not certify rights in a voice. Shared
+RVC assets are downloaded separately under their upstream terms. Existing
+local user models and audio retain their original rights and are not
+relicensed by Vocalis.
 
 Routing into other applications requires a separately installed virtual
 cable driver such as VB-CABLE (https://vb-audio.com/Cable/).

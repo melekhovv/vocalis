@@ -10,7 +10,7 @@ interface PreviewCtx {
 }
 const Ctx = createContext<PreviewCtx | null>(null)
 
-/** Convert a user-selected WAV locally; no third-party voice samples are bundled. */
+/** Card previews convert local Windows system speech, never a microphone recording. */
 export function PreviewProvider({ children }: { children: ReactNode }) {
   const [converting, setConverting] = useState<string | null>(null)
   const [playing, setPlaying] = useState<string | null>(null)

@@ -1,0 +1,158 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-check:
+    name: Lint & Static Checks
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install shell dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: TypeScript typecheck
+        working-directory: app
+        run: npm run typecheck
+
+      - name: Shell linter (oxlint)
+        working-directory: app
+        run: npm run lint
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Engine linter (ruff)
+        run: uv run --with ruff ruff check engine/vcengine
+
+      - name: Engine typecheck (pyright)
+        run: uv run --with pyright pyright engine/vcengine
+
+      - name: Verify lockfiles
+        run: |
+          uv lock --check --project engine
+          uv lock --check --project engine/profiles/cpu
+
+      - name: Check release integrity and secrets
+        shell: powershell
+        run: .\scripts\check-release.ps1
+
+      - name: Test clean releases script
+        shell: powershell
+        run: .\scripts\test-clean-releases.ps1
+
+      - name: Test source export script
+        shell: powershell
+        run: .\scripts\test-export-source.ps1
+
+  test:
+    name: Automated Tests
+    needs: lint-and-check
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install shell dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Run Electron lifecycle and cable tests
+        working-directory: app
+        run: |
+          node --test tests/main-lifecycle.cjs
+          node --test tests/cable-setup.cjs
+
+      - name: Setup Python & uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Sync CPU Python environment
+        run: uv sync --project engine/profiles/cpu
+
+      - name: Run Engine unit tests (77 tests)
+        run: uv run --project engine/profiles/cpu python -B -m unittest discover -s engine/tests -p "test_*.py" -v
+
+  build:
+    name: Package Windows Installer
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install shell dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Prepare uv binary for extraResources
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force app\build\bin | Out-Null
+          $uvPath = (Get-Command uv).Source
+          Copy-Item $uvPath app\build\bin\uv.exe -Force
+
+      - name: Build Windows Installer (NSIS)
+        working-directory: app
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: npm run dist
+
+      - name: Inspect code signature status
+        shell: powershell
+        run: .\scripts\sign-release.ps1 -VerifyOnly
+        continue-on-error: true
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vocalis-Windows-Installer
+          path: |
+            app/release/Vocalis-Setup-*.exe
+            app/release/Vocalis-Setup-*.exe.blockmap
+            app/release/latest.yml
+            app/release/SHA256SUMS.txt
+          if-no-files-found: error

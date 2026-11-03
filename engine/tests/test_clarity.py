@@ -26,12 +26,13 @@ class ClarityTests(unittest.TestCase):
         self.assertEqual(e.params['input_gain'],1.5)
         self.assertEqual(e.devices['input'],1)
 
-    def test_mode_survives_voice_selection_without_enabling_missing_index(self):
+    def test_mode_is_remembered_per_voice_without_enabling_missing_index(self):
         e=self.engine();e.update_params({'clarity_mode':True});e.select_voice('plain')
-        self.assertTrue(e.params['clarity_mode'])
+        self.assertFalse(e.params['clarity_mode'])
         self.assertEqual(e.params['index_rate'],0.)
-        self.assertEqual(e.params['protect'],.1)
+        self.assertEqual(e.params['protect'],.33)
         e.select_voice('indexed')
+        self.assertTrue(e.params['clarity_mode'])
         self.assertEqual(e.params['index_rate'],.4)
 
     def test_disable_restores_selected_voice_profile(self):

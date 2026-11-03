@@ -1,8 +1,14 @@
-import type { AppSettings, EngineInfo, HotkeyAction } from './types'
+import type { AppSettings, CableSetupInfo, EngineInfo, HotkeyAction, SetupProfile } from './types'
 
 interface Bridge {
   engineInfo(): Promise<EngineInfo>
-  setupEngine(): Promise<void>
+  setupEngine(profile?: SetupProfile): Promise<void>
+  cancelSetup(): Promise<void>
+  openCableSetup(): Promise<void>
+  cableStatus(): Promise<CableSetupInfo>
+  setupCable(): Promise<CableSetupInfo>
+  cancelCableSetup(): Promise<void>
+  onCableSetup(cb: (info: CableSetupInfo) => void): () => void
   restartEngine(): Promise<void>
   onEngineState(cb: (info: EngineInfo) => void): () => void
   onEngineLog(cb: (line: string) => void): () => void

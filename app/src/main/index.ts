@@ -1,8 +1,9 @@
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
 import { spawn, ChildProcess } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { CableSetup } from './cable-setup'
 
 // ------------------------------------------------------------------ settings
 export type HotkeyAction = 'toggle' | 'bypass' | 'next' | 'prev' | 'monitor'
@@ -76,12 +77,22 @@ function saveSettings() {
 
 // ------------------------------------------------------------------ engine process
 type EngineState = 'needs-setup' | 'installing' | 'starting' | 'ready' | 'crashed'
+type SetupProfile = 'nvidia' | 'amd' | 'laptop' | 'cpu'
+interface SetupProgress {
+  profile: SetupProfile
+  stage: 'preparing' | 'downloading' | 'installing' | 'verifying' | 'complete' | 'cancelled' | 'error'
+  detail: string
+  error?: string
+}
 
 const isDev = !app.isPackaged
 const engineDir = isDev ? resolve(__dirname, '../../../engine') : join(process.resourcesPath, 'engine')
 const dataRoot = join(process.env.LOCALAPPDATA || app.getPath('appData'), 'Vocalis')
 const runtimeEnv = isDev ? join(engineDir, '.venv') : join(dataRoot, 'runtime', 'venv')
 const pythonExe = join(runtimeEnv, 'Scripts', 'python.exe')
+// Only installations touched by setup are marked; existing working environments
+// from earlier releases remain usable without migration.
+const incompleteSetupFile = runtimeEnv + '.setup-incomplete'
 const uvExe = isDev
   ? resolve(engineDir, '../app/build/bin/uv.exe')
   : join(process.resourcesPath, 'bin', 'uv.exe')
@@ -95,6 +106,17 @@ let engineState: EngineState = 'starting'
 let engineLog: string[] = []
 let quitting = false
 let restarts = 0
+let setupProgress: SetupProgress | undefined
+let setupProfile: SetupProfile = 'nvidia'
+let setupCancelled = false
+let clearLogOnReady = false
+
+const profileFile = () => join(dataRoot, 'runtime', 'profile.json')
+
+function updateSetup(stage: SetupProgress['stage'], detail: string, error?: string) {
+  setupProgress = { profile: setupProfile, stage, detail, ...(error ? { error } : {}) }
+  win?.webContents.send('engine:state', engineInfo())
+}
 
 function pushLog(line: string) {
   engineLog.push(line)
@@ -108,13 +130,13 @@ function setEngineState(s: EngineState) {
 }
 
 function engineInfo() {
-  return { state: engineState, port: enginePort, token, log: engineLog.slice(-60), dev: isDev }
+  return { state: engineState, port: enginePort, token, log: engineLog.slice(-60), dev: isDev, setup: setupProgress, setupProfile }
 }
 
 function startEngine() {
   if (quitting || engineProc || installerProc) return
   clearTimeout(restartTimer)
-  if (!existsSync(pythonExe)) {
+  if (existsSync(incompleteSetupFile) || !existsSync(pythonExe)) {
     setEngineState('needs-setup')
     return
   }
@@ -137,6 +159,11 @@ function startEngine() {
       const m = /^VOCALIS_READY (\d+)/.exec(line)
       if (m) {
         enginePort = Number(m[1])
+        if (clearLogOnReady) {
+          engineLog = []
+          clearLogOnReady = false
+        }
+        if (setupProgress?.stage === 'verifying') updateSetup('complete', 'Движок установлен и готов к работе.')
         setEngineState('ready')
       } else if (line) {
         pushLog(line)
@@ -154,6 +181,7 @@ function startEngine() {
     engineProc = null
     if (quitting) return
     pushLog(error ? `[engine could not start: ${error.message}]` : `[engine exited with code ${code}]`)
+    if (setupProgress?.stage === 'verifying') updateSetup('error', 'Зависимости установлены, но движок не запустился. Подробности в журнале.', error?.message || `Код ${code}`)
     setEngineState('crashed')
     if (Date.now() - startedAt > 60000) restarts = 0
     if (restarts < 3) {
@@ -165,17 +193,29 @@ function startEngine() {
   proc.once('exit', (code) => finish(code))
 }
 
-function setupEngine() {
+function setupEngine(profile: SetupProfile = 'nvidia') {
   if (quitting || installerProc || engineProc || engineState === 'installing') return
+  if (!['nvidia', 'amd', 'laptop', 'cpu'].includes(profile)) throw new Error('Неизвестный профиль установки')
+  setupProfile = profile
+  setupCancelled = false
+  updateSetup('preparing', 'Подготовка Python 3.11 и окружения. Потребуются интернет и свободное место на диске.')
   if (!existsSync(uvExe)) {
     pushLog(`uv не найден: ${uvExe}`)
+    updateSetup('error', 'Не найден установщик uv. Переустановите Vocalis.', 'uv не найден')
     setEngineState('needs-setup')
     return
   }
   setEngineState('installing')
   mkdirSync(join(dataRoot, 'runtime'), { recursive: true })
+  try {
+    writeFileSync(incompleteSetupFile, JSON.stringify({ profile, startedAt: new Date().toISOString() }))
+  } catch (error) {
+    updateSetup('error', 'Не удалось сохранить состояние установки. Проверьте доступ к диску.', String(error))
+    setEngineState('needs-setup')
+    return
+  }
   const proc = spawn(uvExe, ['sync', '--frozen', '--python', '3.11', '--no-progress'], {
-    cwd: engineDir,
+    cwd: profile === 'nvidia' ? engineDir : join(engineDir, 'profiles', 'cpu'),
     env: {
       ...process.env,
       UV_PROJECT_ENVIRONMENT: runtimeEnv,
@@ -186,20 +226,53 @@ function setupEngine() {
     windowsHide: true,
   })
   installerProc = proc
-  const onData = (chunk: Buffer) => chunk.toString('utf-8').split(/\r?\n/).filter(Boolean).forEach(pushLog)
-  proc.stdout?.on('data', onData)
-  proc.stderr?.on('data', onData)
+  const readInstallerLines = () => {
+    let pending = ''
+    return (chunk: Buffer) => {
+      pending += chunk.toString('utf-8')
+      const lines = pending.split(/[\r\n]+/)
+      pending = lines.pop() || ''
+      for (const line of lines.filter(Boolean)) {
+        pushLog(line)
+        const stage = /download/i.test(line) ? 'downloading' : /install|uninstall|prepared/i.test(line) ? 'installing' : setupProgress?.stage || 'preparing'
+        updateSetup(stage, line)
+      }
+    }
+  }
+  proc.stdout?.on('data', readInstallerLines())
+  proc.stderr?.on('data', readInstallerLines())
+  let finished = false
   proc.once('error', (error) => {
+    if (finished) return
+    finished = true
     installerProc = null
     pushLog(`Не удалось запустить установку: ${error.message}`)
+    updateSetup('error', 'Не удалось запустить установку. Можно повторить попытку.', error.message)
     if (!quitting) setEngineState('needs-setup')
   })
   proc.on('exit', (code) => {
+    if (finished) return
+    finished = true
     installerProc = null
     if (quitting) return
-    if (code === 0) startEngine()
+    if (setupCancelled) {
+      updateSetup('cancelled', 'Установка отменена. Для продолжения запустите её повторно.')
+      setEngineState('needs-setup')
+    } else if (code === 0) {
+      updateSetup('verifying', 'Зависимости установлены. Проверяем запуск движка…')
+      try {
+        writeFileSync(profileFile(), JSON.stringify({ profile: setupProfile }))
+        unlinkSync(incompleteSetupFile)
+      } catch (error) {
+        updateSetup('error', 'Не удалось завершить настройку. Проверьте доступ к диску и повторите установку.', String(error))
+        setEngineState('needs-setup')
+        return
+      }
+      startEngine()
+    }
     else {
       pushLog(`[установка завершилась с кодом ${code}]`)
+      updateSetup('error', 'Установка не завершена. Проверьте сеть, свободное место и журнал; затем повторите попытку.', `Код ${code}`)
       setEngineState('needs-setup')
     }
   })
@@ -340,6 +413,7 @@ function createTray() {
 
 async function quit() {
   quitting = true
+  cableSetup.cancel()
   clearTimeout(restartTimer)
   installerProc?.kill()
   try {
@@ -356,8 +430,18 @@ async function quit() {
 // ------------------------------------------------------------------ IPC
 function registerIpc() {
   ipcMain.handle('engine:info', () => engineInfo())
-  ipcMain.handle('engine:setup', () => setupEngine())
+  ipcMain.handle('engine:setup', (_e, profile?: SetupProfile) => setupEngine(profile))
+  ipcMain.handle('engine:cancelSetup', () => {
+    if (!installerProc) return
+    setupCancelled = true
+    installerProc.kill()
+  })
+  ipcMain.handle('setup:cable', () => shell.openExternal('https://vb-audio.com/Cable/'))
+  ipcMain.handle('cable:status', () => cableSetup.status())
+  ipcMain.handle('cable:setup', () => cableSetup.setup())
+  ipcMain.handle('cable:cancel', () => cableSetup.cancel())
   ipcMain.handle('engine:restart', () => {
+    clearLogOnReady = true
     restarts = 0
     if (engineProc) engineProc.kill()
     else startEngine()
@@ -395,6 +479,7 @@ function registerIpc() {
 }
 
 // ------------------------------------------------------------------ lifecycle
+const cableSetup = new CableSetup(app.getPath('temp'), info => win?.webContents.send('cable:state', info))
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
@@ -405,8 +490,13 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     app.setAppUserModelId('app.vocalis')
     loadSettings()
+    try {
+      const saved = JSON.parse(readFileSync(profileFile(), 'utf-8'))
+      if (['nvidia', 'amd', 'laptop', 'cpu'].includes(saved.profile)) setupProfile = saved.profile
+    } catch { /* first launch */ }
     registerIpc()
     createWindow()
+    void cableSetup.status()
     createTray()
     applyHotkeys()
     startEngine()
@@ -414,6 +504,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('will-quit', () => globalShortcut.unregisterAll())
   app.on('before-quit', () => {
     quitting = true
+    cableSetup.cancel()
     clearTimeout(restartTimer)
     installerProc?.kill()
     engineProc?.kill()

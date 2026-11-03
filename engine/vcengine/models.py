@@ -15,17 +15,62 @@ import shutil
 import threading
 import time
 import zipfile
+import stat
+import tempfile
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
 
-from .paths import CACHE_DIR, CATALOG_FILE, DATA_DIR, VOICES_DIR
+from .paths import CATALOG_FILE, DATA_DIR, VOICES_DIR
 
 from .downloads import ALLOWED_HOSTS, open_download
 CHUNK = 1 << 20
 CUSTOM_PREFIX = "custom-"
+MAX_FILE_SIZE = 2 * 1024**3
+MAX_EXPANDED_SIZE = 3 * 1024**3
+MAX_ARCHIVE_ENTRIES = 1024
+
+
+def validate_zip(z):
+    """Validate the complete central directory before copying any member."""
+    entries = z.infolist()
+    if len(entries) > MAX_ARCHIVE_ENTRIES:
+        raise ModelError("В архиве слишком много файлов")
+    total = 0
+    names = set()
+    for entry in entries:
+        name = entry.filename.replace('\\', '/')
+        parts = name.split('/')
+        if (name.startswith('/') or re.match(r'^[A-Za-z]:', name) or '..' in parts
+                or '\x00' in name or name.casefold() in names
+                or stat.S_ISLNK(entry.external_attr >> 16) or entry.flag_bits & 1):
+            raise ModelError("Архив содержит небезопасные пути, ссылки или дубликаты")
+        names.add(name.casefold())
+        total += entry.file_size
+        if entry.file_size > MAX_FILE_SIZE or total > MAX_EXPANDED_SIZE or (entry.file_size > 1024**2 and entry.file_size > max(entry.compress_size, 1) * 200):
+            raise ModelError("Архив превышает допустимый размер или коэффициент сжатия")
+
+
+def copy_zip_member(z, member, destination, job):
+    if not isinstance(member, str) or member not in z.namelist() or not member.lower().endswith(destination.suffix.lower()):
+        raise ModelError("В архиве нет указанного файла модели/индекса")
+    entry = z.getinfo(member)
+    if entry.is_dir():
+        raise ModelError("Вместо файла модели в архиве указана папка")
+    written = 0
+    with z.open(member) as source, open(destination, 'wb') as target:
+        while chunk := source.read(CHUNK):
+            if job.cancel.is_set():
+                raise _Cancelled()
+            written += len(chunk)
+            if written > MAX_FILE_SIZE or written > entry.file_size:
+                raise ModelError("Распакованный файл превышает допустимый размер")
+            target.write(chunk)
+    if written != entry.file_size:
+        raise ModelError("Размер распакованного файла не совпадает")
 
 
 class ModelError(Exception):
@@ -48,6 +93,8 @@ def inspect_checkpoint(path: Path) -> dict:
     """Safely open an RVC checkpoint and describe it. Raises ModelError if unusable."""
     import torch
 
+    if not path.is_file() or not 0 < path.stat().st_size <= MAX_FILE_SIZE:
+        raise ModelError("Файл модели пуст или превышает допустимый размер")
     try:
         cpt = torch.load(str(path), map_location="cpu", weights_only=True)
     except Exception as e:  # weights_only rejects pickled code objects
@@ -63,23 +110,101 @@ def inspect_checkpoint(path: Path) -> dict:
     if not isinstance(cpt, dict) or "weight" not in cpt or "config" not in cpt:
         raise ModelError("Это не RVC-модель для инференса (нет полей weight/config). Возможно, это чекпойнт обучения G_*.pth.")
     config = cpt["config"]
-    if not isinstance(config, (list, tuple)) or len(config) < 3:
+    if not isinstance(config, (list, tuple)) or len(config) != 18:
         raise ModelError("Неизвестный формат config в чекпойнте")
-    if "emb_g.weight" not in cpt["weight"]:
+    if not isinstance(cpt["weight"], dict) or "emb_g.weight" not in cpt["weight"]:
         raise ModelError("В чекпойнте нет speaker embedding (emb_g.weight)")
     version = cpt.get("version", "v1")
     if version not in ("v1", "v2"):
         raise ModelError(f"Неподдерживаемая версия RVC: {version}")
     sr = config[-1]
-    if isinstance(sr, str):
-        sr = int(sr.lower().replace("k", "000"))
+    try:
+        if not isinstance(sr, int) or isinstance(sr, bool) or sr not in (32000, 40000, 48000):
+            raise ValueError()
+        embedding = cpt["weight"]["emb_g.weight"]
+        if not isinstance(embedding, torch.Tensor) or embedding.ndim != 2 or not 1 <= embedding.shape[0] <= 65536 or embedding.shape[1] != config[-2]:
+            raise ValueError()
+    except (TypeError, ValueError, AttributeError):
+        raise ModelError("Некорректная частота дискретизации или speaker embedding")
+    f0, vocoder = cpt.get("f0", 1), cpt.get("vocoder", "HiFi-GAN")
+    if not isinstance(f0, (int, bool)) or f0 not in (0, 1) or vocoder not in ("HiFi-GAN", "MRF HiFi-GAN", "RefineGAN") or (not f0 and vocoder != "HiFi-GAN"):
+        raise ModelError("Неподдерживаемый вокодер или флаг F0")
+    # Bound architecture metadata before constructing even a metadata-only
+    # network. Loading untrusted pickles is never enabled as a fallback.
+    limits = {0: 4097, 1: 65536, 2: 512, 3: 512, 4: 4096, 5: 16, 6: 24, 7: 31, 13: 1024, 15: 65536, 16: 512}
+    if any(not isinstance(config[i], int) or isinstance(config[i], bool) or not 0 < config[i] <= cap for i, cap in limits.items()):
+        raise ModelError("Размеры архитектуры модели выходят за поддерживаемые пределы")
+    if config[3] % config[5] or not isinstance(config[8], (int, float)) or not 0 <= config[8] < 1 or config[9] not in ('1', '2'):
+        raise ModelError("Некорректная архитектура модели")
+    for index in (10, 12, 14):
+        if not isinstance(config[index], (list, tuple)) or not 1 <= len(config[index]) <= 8 or any(not isinstance(x, int) or isinstance(x, bool) or not 1 <= x <= 64 for x in config[index]):
+            raise ModelError("Некорректные параметры слоёв модели")
+    if len(config[12]) != len(config[14]) or math.prod(config[12]) != sr // 100 or not isinstance(config[11], (list, tuple)) or len(config[11]) != len(config[10]):
+        raise ModelError("Архитектура не соответствует частоте модели")
+    if any(not isinstance(layer, (list, tuple)) or not 1 <= len(layer) <= 8 or any(not isinstance(x, int) or isinstance(x, bool) or not 1 <= x <= 64 for x in layer) for layer in config[11]):
+        raise ModelError("Некорректные параметры residual-слоёв")
+    weights = cpt['weight']
+    if len(weights) > 4096 or any(not isinstance(k, str) or not isinstance(v, torch.Tensor) or v.layout != torch.strided for k, v in weights.items()) or sum(v.numel() for v in weights.values()) > 300_000_000:
+        raise ModelError("Неподдерживаемый набор тензоров модели")
+    for key in weights:
+        legacy = key.replace('.parametrizations.weight.original0', '.weight_g').replace('.parametrizations.weight.original1', '.weight_v')
+        if legacy != key and legacy in weights:
+            raise ModelError("Неоднозначные веса: одновременно указаны старые и новые параметры weight_norm")
+    try:
+        from .paths import VENDOR_DIR
+        import sys
+        if str(VENDOR_DIR) not in sys.path:
+            sys.path.insert(0, str(VENDOR_DIR))
+        from rvc.lib.algorithm.synthesizers import Synthesizer
+        architecture = list(config)
+        architecture[-3] = embedding.shape[0]
+        with torch.device('meta'):
+            network = Synthesizer(*architecture, use_f0=bool(f0), text_enc_hidden_dim=256 if version == 'v1' else 768, vocoder=vocoder)
+        del network.enc_q
+        expected = network.state_dict()
+        # Torch's weight_norm load hook supports older RVC exports named
+        # weight_g/weight_v. Compare those equivalent tensors without changing
+        # the checkpoint or weakening the required architecture shape checks.
+        def checkpoint_tensor(key):
+            if key in weights:
+                return weights[key]
+            legacy = key.replace('.parametrizations.weight.original0', '.weight_g').replace('.parametrizations.weight.original1', '.weight_v')
+            return weights.get(legacy)
+        if any(checkpoint_tensor(key) is None or checkpoint_tensor(key).shape != tensor.shape for key, tensor in expected.items()):
+            raise ModelError("Тензоры весов не соответствуют архитектуре RVC")
+        del network, expected
+        for tensor in weights.values():
+            flattened = tensor.reshape(-1)
+            for start in range(0, flattened.numel(), 1_000_000):
+                if not torch.isfinite(flattened[start:start + 1_000_000]).all():
+                    raise ModelError("Веса содержат NaN или бесконечность")
+    except ModelError:
+        raise
+    except Exception as exc:
+        raise ModelError("Не удалось подтвердить совместимость архитектуры RVC") from exc
     return {
         "version": version,
         "sampleRate": int(sr),
-        "f0": bool(cpt.get("f0", 1)),
-        "vocoder": cpt.get("vocoder", "HiFi-GAN"),
+        "f0": bool(f0),
+        "vocoder": vocoder,
         "speakers": int(cpt["weight"]["emb_g.weight"].shape[0]),
     }
+
+
+def inspect_index(path: Path, checkpoint: dict):
+    """Verify FAISS structure/dimension; semantic weight/index pairing is not inferred."""
+    if not path.is_file() or not 0 < path.stat().st_size <= MAX_FILE_SIZE:
+        raise ModelError("Файл индекса пуст или превышает допустимый размер")
+    try:
+        import faiss
+        index = faiss.read_index(str(path))
+        expected = 256 if checkpoint.get("version") == "v1" else 768
+        if index.d != expected or index.ntotal < 1:
+            raise ModelError(f"Индекс должен содержать данные размерности {expected} для {checkpoint.get('version')}")
+    except ModelError:
+        raise
+    except Exception as exc:
+        raise ModelError("Не удалось прочитать FAISS-индекс") from exc
 
 
 @dataclass
@@ -109,17 +234,38 @@ class ModelManager:
         self.lock = threading.Lock()
         self.on_change = on_change or (lambda: None)
         self.session = requests.Session()
+        self.session.trust_env = False
         self.session.headers["User-Agent"] = "Vocalis/0.1"
 
     def _validate_catalog(self):
-        """Never publish/download a factory voice without explicit public-domain evidence."""
+        """Require reproducible files; licensing information is not certification."""
         for voice in self.catalog.get("voices", []):
-            model = voice.get("model", {})
-            rights = model.get("rights", {})
-            if (model.get("license") != "CC0-1.0" or rights.get("datasetLicense") != "CC0-1.0"
-                    or not str(rights.get("evidenceUrl", "")).startswith("https://")
-                    or not rights.get("verifiedAt")):
-                raise ModelError("Каталог содержит голос без подтверждённых прав CC0")
+            self.validate_catalog_voice(voice)
+
+    def validate_catalog_voice(self, voice):
+        model = voice.get("model", {})
+        # Declared licensing is informational, not a technical download gate.
+        # Unknown terms never become a rights approval or an inferred license.
+        self._voice_dir(voice.get("id", ""))
+        if not re.fullmatch(r"[a-fA-F0-9]{40}", str(model.get("revision", ""))):
+            raise ModelError("Ревизия модели должна быть закреплена полным commit SHA")
+        assets = [model["archive"]] if isinstance(model.get("archive"), dict) else model.get("files", [])
+        if not assets or len(assets) > 2:
+            raise ModelError("Каталог должен указывать один архив или веса и необязательный индекс")
+        kinds = set()
+        for asset in assets:
+            if not isinstance(asset, dict) or not isinstance(asset.get("size"), int) or isinstance(asset.get("size"), bool) or not 0 < asset["size"] <= MAX_FILE_SIZE or not re.fullmatch(r"[a-fA-F0-9]{64}", str(asset.get("sha256", ""))):
+                raise ModelError("Для файла модели обязательны допустимый размер и SHA-256")
+            if "archive" not in model:
+                kind = asset.get("kind")
+                if kind not in ("pth", "index") or kind in kinds:
+                    raise ModelError("Неоднозначный набор файлов модели")
+                kinds.add(kind)
+        if "archive" not in model and "pth" not in kinds:
+            raise ModelError("В наборе файлов нет весов .pth")
+        members = model.get("archive", {}).get("members")
+        if members is not None and (not isinstance(members, dict) or "pth" not in members or set(members) - {"pth", "index"}):
+            raise ModelError("Неоднозначный набор файлов в архиве")
 
     # ------------------------------------------------------------ catalog
     def _catalog_voice(self, voice_id):
@@ -163,7 +309,7 @@ class ModelManager:
 
     def voice_paths(self, voice_id):
         """Return (pth, index|None) for a ready voice or raise ModelError."""
-        if not isinstance(voice_id, str) or (not voice_id.startswith(CUSTOM_PREFIX) and not self._catalog_voice(voice_id)):
+        if not isinstance(voice_id, str) or (not voice_id.startswith(CUSTOM_PREFIX) and not self._catalog_voice(voice_id) and not self._local_voice(voice_id)):
             raise ModelError("Голос отсутствует в библиотеке")
         man = self._manifest(voice_id)
         if man and man.get("status") == "corrupted":
@@ -182,16 +328,60 @@ class ModelManager:
         index = d / idx["name"] if idx and (d / idx["name"]).exists() else None
         return str(pth), (str(index) if index else None)
 
+    def _local_voice(self, voice_id):
+        """Describe an installed model independently of the downloadable catalog."""
+        man = self._manifest(voice_id)
+        if not man or not (self._voice_dir(voice_id) / "model.pth").is_file():
+            return None
+        if isinstance(man.get("voice"), dict):
+            return {**man["voice"], "id": voice_id}
+        names = {
+            "pudge-ru": "Пудж", "invoker-ru": "Инвокер", "treant-ru": "Трент",
+            "witch-doctor-ru": "Вич Доктор", "spongebob-ru": "Губка Боб",
+            "shrek-ru": "Шрек", "shrek-alt-ru": "Шрек (альтернативный)",
+            "sonic-ru": "Соник", "burunov-ru": "Сергей Бурунов",
+            "deadpool-ru": "Дэдпул", "geralt-kuznetsov-ru": "Геральт",
+            "optimus-prime-ru": "Оптимус Прайм",
+        }
+        # These profiles were part of the original local catalog. Keep them
+        # when recovering installed voices: a zero pitch for every model
+        # changes both its register and its resemblance to the target voice.
+        pitches = {
+            "pudge-ru": -3, "invoker-ru": 0, "treant-ru": -4,
+            "witch-doctor-ru": -2, "spongebob-ru": 5,
+            "shrek-ru": -2, "shrek-alt-ru": -2, "sonic-ru": 2,
+            "burunov-ru": -2, "deadpool-ru": 0,
+            "geralt-kuznetsov-ru": -3, "optimus-prime-ru": -4,
+        }
+        name = names.get(voice_id, voice_id.replace("-", " "))
+        voice = {
+            "id": voice_id, "name": name, "nameRu": name,
+            "franchise": "Локальная модель", "category": "other",
+            "description": "Ранее установленная модель RVC.", "language": None,
+            "suggestedPitch": pitches.get(voice_id, 0), "accent": "#a78bfa", "wikipedia": None,
+            "model": {"title": name, "format": "RVC (.pth)", "repo": None,
+                      "revision": None, "upstream": None, "license": "Не проверена",
+                      "licenseNote": "Локальная модель пользователя. Права на распространение не проверялись."},
+        }
+        if voice_id in pitches:
+            voice["legacyProfile"] = True
+            voice["recommendedParams"] = {
+                "index_rate": 0.75 if "index" in man["files"] else 0.0,
+                "protect": 0.33,
+                "f0_method": "rmvpe",
+            }
+        return voice
+
     def list_voices(self):
         out = []
         for v in self.catalog["voices"]:
             out.append(self._describe(v, custom=False))
         if VOICES_DIR.exists():
             for d in sorted(VOICES_DIR.iterdir()):
-                if d.is_dir() and d.name.startswith(CUSTOM_PREFIX):
-                    man = self._manifest(d.name)
-                    if man and "voice" in man:
-                        out.append(self._describe(man["voice"], custom=True))
+                if d.is_dir() and re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", d.name) and not self._catalog_voice(d.name):
+                    voice = self._local_voice(d.name)
+                    if voice:
+                        out.append(self._describe(voice, custom=True))
         return out
 
     def _describe(self, v, custom):
@@ -210,6 +400,10 @@ class ModelManager:
         else:
             status = "not_downloaded"
         info = dict(v)
+        if man and isinstance(man.get("voice"), dict):
+            for key in ("recommendedParams", "qualityPreset"):
+                if key in man["voice"]:
+                    info[key] = man["voice"][key]
         info["custom"] = custom
         info["status"] = status
         info["downloadSize"] = None if custom else self._download_size(v)
@@ -252,6 +446,19 @@ class ModelManager:
         v = self._catalog_voice(voice_id)
         if not v:
             raise ModelError("Голос не найден в каталоге")
+        return self.install_voice(v)
+
+    def install_voice(self, v):
+        voice_id = v['id']
+        self.validate_catalog_voice(v)
+        man = self._manifest(voice_id)
+        if man and man.get("status") == "ready":
+            self.voice_paths(voice_id)
+            incoming = v.get('model', {}).get('sourceFingerprint')
+            previous = man.get('voice', {}).get('model', {}).get('sourceFingerprint')
+            if incoming and incoming != previous:
+                raise ModelError("Уже установлен другой файл или ревизия этого репозитория. Сначала удалите предыдущий вариант в библиотеке")
+            return {"stage": "done", "done": 0, "total": 0, "progress": 1, "error": None}
         return self._start_job(voice_id, lambda job: self._run_voice(job, v))
 
     def cancel(self, voice_id):
@@ -264,6 +471,8 @@ class ModelManager:
             job = self.jobs.get(key)
             if job and job.stage not in ("done", "error", "cancelled"):
                 return job.to_dict()
+            if sum(j.stage not in ("done", "error", "cancelled") for j in self.jobs.values()) >= 2:
+                raise ModelError("Уже выполняются две загрузки. Дождитесь завершения или отмените одну из них")
             job = Job(key)
             self.jobs[key] = job
 
@@ -284,7 +493,12 @@ class ModelManager:
         return job.to_dict()
 
     def _hf_url(self, repo, revision, path):
-        return f"https://huggingface.co/{repo}/resolve/{revision}/{path}"
+        from urllib.parse import quote
+        if not isinstance(repo, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+            raise ModelError("Некорректный источник модели")
+        if not isinstance(path, str) or path.startswith(('/', '\\')) or '..' in path.replace('\\', '/').split('/'):
+            raise ModelError("Некорректный путь файла модели")
+        return f"https://huggingface.co/{repo}/resolve/{quote(revision, safe='')}/{quote(path, safe='/')}"
 
     def _download(self, url, dest: Path, size, sha256, job: Job):
         if job.cancel.is_set():
@@ -315,8 +529,10 @@ class ModelManager:
                         for chunk in r.iter_content(CHUNK):
                             if job.cancel.is_set():
                                 raise _Cancelled()
-                            f.write(chunk)
                             written += len(chunk)
+                            if written > (size or MAX_FILE_SIZE):
+                                raise ModelError("Загрузка превысила заявленный размер файла")
+                            f.write(chunk)
                             job.done = base_done + written
                 break
             except (requests.ConnectionError, requests.Timeout, requests.exceptions.ChunkedEncodingError) as e:
@@ -342,77 +558,106 @@ class ModelManager:
     def _run_voice(self, job: Job, v):
         m = v["model"]
         d = self._voice_dir(v["id"])
-        d.mkdir(parents=True, exist_ok=True)
-        job.total = self._download_size(v)
-        files = {}
-        if "archive" in m:
-            a = m["archive"]
-            zpath = CACHE_DIR / f"{v['id']}.zip"
-            job.stage = "download"
-            self._download(a.get("url") or self._hf_url(m["repo"], m["revision"], a["path"]), zpath, a["size"], a["sha256"], job)
-            job.stage = "extract"
-            with zipfile.ZipFile(zpath) as z:
-                names = set(z.namelist())
-                for kind, member in a["members"].items():
-                    if member not in names:
-                        raise ModelError(f"В архиве нет файла {member}")
-                    out = d / ("model.pth" if kind == "pth" else "model.index")
-                    with z.open(member) as src, open(out, "wb") as dst:
-                        shutil.copyfileobj(src, dst, CHUNK)
-            zpath.unlink(missing_ok=True)
-            for kind in a["members"]:
-                name = "model.pth" if kind == "pth" else "model.index"
-                files[kind] = {"name": name, "sha256": sha256_file(d / name), "size": (d / name).stat().st_size}
-        else:
-            for f in m["files"]:
-                job.stage = f"download:{f['kind']}"
-                name = "model.pth" if f["kind"] == "pth" else "model.index"
-                url = f.get("url") or self._hf_url(m["repo"], m["revision"], f["path"])
-                member = f.get("member")
-                dest = CACHE_DIR / f"{v['id']}-{f['kind']}.zip" if member else d / name
-                self._download(url, dest, f["size"], f["sha256"], job)
-                if member:
-                    # Only the declared member is streamed into a fixed model filename.
-                    # ZIP paths are never interpreted as filesystem destinations.
-                    with zipfile.ZipFile(dest) as z:
-                        if member not in z.namelist() or not member.lower().endswith("." + f["kind"]):
-                            raise ModelError("В архиве нет указанного файла модели/индекса")
-                        with z.open(member) as src, open(d / name, "wb") as dst:
-                            shutil.copyfileobj(src, dst, CHUNK)
-                    dest.unlink(missing_ok=True)
-                target = d / name
-                files[f["kind"]] = {"name": name, "sha256": sha256_file(target), "size": target.stat().st_size}
-        job.stage = "validate"
-        if job.cancel.is_set():
-            raise _Cancelled()
-        self._finalize(v["id"], files, voice=None)
+        if d.exists():
+            raise ModelError("Папка модели уже существует. Проверьте установленную модель или удалите её явно перед повторной установкой")
+        VOICES_DIR.mkdir(parents=True, exist_ok=True)
+        # Same-volume staging guarantees the validated manifest and weights
+        # become visible together. Failed/cancelled jobs never enter library.
+        with tempfile.TemporaryDirectory(prefix=".install-", dir=VOICES_DIR) as temporary:
+            staged = Path(temporary) / "voice"
+            staged.mkdir()
+            job.total = self._download_size(v)
+            files = {}
+            if "archive" in m:
+                a = m["archive"]
+                zpath = Path(temporary) / "source.zip"
+                job.stage = "downloading"
+                self._download(a.get("url") or self._hf_url(m["repo"], m["revision"], a["path"]), zpath, a["size"], a["sha256"], job)
+                job.stage = "extracting"
+                with zipfile.ZipFile(zpath) as z:
+                    validate_zip(z)
+                    members = a.get("members")
+                    if members is None:
+                        # A single unambiguous inference checkpoint and optional
+                        # index can be discovered without filesystem operations.
+                        members = {}
+                        for kind in ("pth", "index"):
+                            candidates = [n for n in z.namelist() if n.lower().endswith('.' + kind) and not Path(n).name.startswith(('G_', 'D_'))]
+                            if len(candidates) > 1 or (kind == "pth" and not candidates):
+                                raise ModelError("Неоднозначный архив: невозможно выбрать единственную модель/индекс")
+                            if candidates:
+                                members[kind] = candidates[0]
+                    for kind, member in members.items():
+                        if kind not in ("pth", "index"):
+                            raise ModelError("Неподдерживаемый файл в манифесте модели")
+                        target = staged / ("model.pth" if kind == "pth" else "model.index")
+                        copy_zip_member(z, member, target, job)
+            else:
+                for f in m["files"]:
+                    job.stage = "downloading"
+                    name = "model.pth" if f["kind"] == "pth" else "model.index"
+                    url = f.get("url") or self._hf_url(m["repo"], m["revision"], f["path"])
+                    member = f.get("member")
+                    dest = Path(temporary) / (f['kind'] + '.zip') if member else staged / name
+                    self._download(url, dest, f["size"], f["sha256"], job)
+                    if member:
+                        job.stage = "extracting"
+                        with zipfile.ZipFile(dest) as z:
+                            validate_zip(z)
+                            copy_zip_member(z, member, staged / name, job)
+            for target in staged.iterdir():
+                kind = "pth" if target.suffix == ".pth" else "index"
+                files[kind] = {"name": target.name, "sha256": sha256_file(target), "size": target.stat().st_size}
+            job.stage = "validating"
+            if job.cancel.is_set():
+                raise _Cancelled()
+            self._finalize(v["id"], files, voice=v, directory=staged)
+            if job.cancel.is_set():
+                raise _Cancelled()
+            job.stage = "installing"
+            with self.lock:
+                if job.cancel.is_set():
+                    raise _Cancelled()
+                if d.exists():
+                    raise ModelError("Модель уже установлена другой операцией")
+                staged.replace(d)
 
-    def _finalize(self, voice_id, files, voice):
-        d = self._voice_dir(voice_id)
+    def _finalize(self, voice_id, files, voice, directory=None):
+        d = directory or self._voice_dir(voice_id)
         manifest = {"status": "ready", "files": files, "installedAt": int(time.time())}
         if voice:
             manifest["voice"] = voice
         try:
             manifest["checkpoint"] = inspect_checkpoint(d / files["pth"]["name"])
+            if "index" in files:
+                inspect_index(d / files["index"]["name"], manifest["checkpoint"])
             manifest["compatible"] = True
         except ModelError as e:
             manifest["status"] = "incompatible"
             manifest["compatible"] = False
             manifest["error"] = str(e)
-            self._write_manifest(voice_id, manifest)
+            if directory is None:
+                self._write_manifest(voice_id, manifest)
             raise
         manifest["diskSize"] = sum(f["size"] for f in files.values())
-        self._write_manifest(voice_id, manifest)
+        if voice:
+            from .quality import model_quality_defaults
+            manifest["voice"] = {**voice, "recommendedParams": voice.get("recommendedParams") or model_quality_defaults(manifest["checkpoint"], "index" in files), "qualityPreset": "Balanced"}
+        if directory is None:
+            self._write_manifest(voice_id, manifest)
+        else:
+            (d / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
 
     # ------------------------------------------------------------ management
     def delete(self, voice_id):
-        job = self.jobs.get(voice_id)
-        if job and job.stage not in ("done", "error", "cancelled"):
-            raise ModelError("Сначала отмените загрузку и дождитесь её завершения")
-        d = self._voice_dir(voice_id)
-        if d.exists():
-            shutil.rmtree(d)
-        self.jobs.pop(voice_id, None)
+        with self.lock:
+            job = self.jobs.get(voice_id)
+            if job and job.stage not in ("done", "error", "cancelled"):
+                raise ModelError("Сначала отмените загрузку и дождитесь её завершения")
+            d = self._voice_dir(voice_id)
+            if d.exists():
+                shutil.rmtree(d)
+            self.jobs.pop(voice_id, None)
         self.on_change()
 
     def verify(self, voice_id):
@@ -433,6 +678,8 @@ class ModelManager:
         if not problems:
             try:
                 man["checkpoint"] = inspect_checkpoint(d / man["files"]["pth"]["name"])
+                if "index" in man["files"]:
+                    inspect_index(d / man["files"]["index"]["name"], man["checkpoint"])
                 man["compatible"] = True
                 man.pop("error", None)
             except ModelError as e:
@@ -450,6 +697,22 @@ class ModelManager:
             raise ModelError("Укажите название модели длиной от 1 до 120 символов")
         name = name.strip()
         pth_path = Path(pth_path)
+        if pth_path.suffix.lower() == ".zip" and pth_path.is_file():
+            if index_path:
+                raise ModelError("Для ZIP-импорта не выбирайте отдельный индекс")
+            if pth_path.stat().st_size > MAX_FILE_SIZE:
+                raise ModelError("Архив превышает допустимый размер")
+            with tempfile.TemporaryDirectory(prefix="vocalis-import-") as folder, zipfile.ZipFile(pth_path) as z:
+                validate_zip(z)
+                selected = {}
+                for kind in ("pth", "index"):
+                    candidates = [n for n in z.namelist() if n.lower().endswith('.' + kind) and not Path(n).name.startswith(('G_', 'D_'))]
+                    if len(candidates) > 1 or (kind == "pth" and not candidates):
+                        raise ModelError("Неоднозначный ZIP: нужна одна модель и не более одного индекса")
+                    if candidates:
+                        selected[kind] = Path(folder) / ('model.' + kind)
+                        copy_zip_member(z, candidates[0], selected[kind], Job('import'))
+                return self.import_custom(name, str(selected['pth']), str(selected['index']) if 'index' in selected else None, category, description)
         if pth_path.suffix.lower() != ".pth" or not pth_path.is_file():
             raise ModelError("Укажите файл модели .pth")
         if index_path:
@@ -457,6 +720,8 @@ class ModelManager:
             if index_path.suffix.lower() != ".index" or not index_path.is_file():
                 raise ModelError("Индекс должен быть файлом .index")
         info = inspect_checkpoint(pth_path)  # validate before copying anything
+        if index_path:
+            inspect_index(index_path, info)
         slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:40] or "voice"
         voice_id = f"{CUSTOM_PREFIX}{slug}"
         n = 2
@@ -477,7 +742,7 @@ class ModelManager:
                 "name": name,
                 "nameRu": name,
                 "franchise": "Пользовательская модель",
-                "category": category if category in ("cartoon", "anime", "film_tv", "game", "other") else "other",
+                "category": category if category in ("cartoon", "anime", "film_tv", "film", "series", "game", "bloggers", "other") else "other",
                 "description": description or f"Импортированная модель RVC {info['version']}, {info['sampleRate'] // 1000} кГц.",
                 "language": None,
                 "suggestedPitch": 0,

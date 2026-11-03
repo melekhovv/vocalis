@@ -21,16 +21,12 @@ from functools import wraps
 import numpy as np
 import sounddevice as sd
 from scipy.signal import butter, sosfilt, sosfilt_zi
+from .quality import REALTIME_PRESETS, normalize_preset, model_quality_defaults, model_applicability, constrain_profile
 
 SR = 48000
 JITTER_S = 0.05  # output jitter buffer
 
-PRESETS = {
-    # block_frame must be a multiple of 480 samples (10 ms @ 48 kHz).
-    "performance": {"block_frame": 5760, "crossfade": 0.05, "extra": 0.5, "f0_method": "fcpe"},
-    "balanced": {"block_frame": 9600, "crossfade": 0.08, "extra": 1.0, "f0_method": "rmvpe"},
-    "quality": {"block_frame": 14400, "crossfade": 0.10, "extra": 2.0, "f0_method": "rmvpe"},
-}
+PRESETS = REALTIME_PRESETS
 
 DEFAULT_PARAMS = {
     "clarity_mode": False,    # optional speech-first settings; preserve existing timbre by default
@@ -50,6 +46,8 @@ DEFAULT_PARAMS = {
     "ptt_vk": 0x14,           # CapsLock by default; any Win32 virtual-key code
     "volume_envelope": 1.0,
 }
+
+VOICE_PARAM_KEYS = ("pitch", "index_rate", "protect", "f0_method", "clarity_mode", "volume_envelope")
 
 
 def validate_params(changes):
@@ -279,6 +277,9 @@ class AudioEngine:
         self.models = models
         self.on_state = on_state or (lambda: None)
         self.params = dict(DEFAULT_PARAMS)
+        self.voice_profiles = {}
+        self.has_index = False
+        self.applicability = model_applicability(None, False)
         self.preset = "balanced"
         self.state = "stopped"  # stopped | loading | running | error
         self.error = None
@@ -312,22 +313,69 @@ class AudioEngine:
         }
 
     # ------------------------------------------------------------ control
+    def _voice_profile(self, voice_id):
+        """Raw personal tuning; clarity is an output overlay, never destructive."""
+        _, index = self.models.voice_paths(voice_id)
+        voice = next((v for v in self.models.list_voices() if v["id"] == voice_id), {})
+        try:
+            profile = model_quality_defaults(voice.get("checkpoint"), bool(index), voice.get("qualityPreset", "Balanced"))
+        except (ValueError, TypeError):
+            profile = model_quality_defaults(voice.get("checkpoint"), bool(index))
+        recommended = voice.get("recommendedParams")
+        suggested = {"pitch": voice.get("suggestedPitch", 0), **(recommended if isinstance(recommended, dict) else {})}
+        for source in (suggested, self.voice_profiles.get(voice_id, {})):
+            for key, value in source.items():
+                if key in VOICE_PARAM_KEYS:
+                    try:
+                        profile.update(validate_params({key: value}))
+                    except (TypeError, ValueError):
+                        pass
+        profile = constrain_profile(profile, model_applicability(voice.get("checkpoint"), bool(index)))
+        return profile, bool(index)
+
+    def effective_voice_profile(self, voice_id):
+        profile, _ = self._voice_profile(voice_id)
+        result = self._clarity_overlay(profile)
+        # Clarity's voiced/unvoiced blend has no meaning for non-F0 models.
+        voice = next((v for v in self.models.list_voices() if v["id"] == voice_id), {})
+        return constrain_profile(result, model_applicability(voice.get("checkpoint"), bool(self.models.voice_paths(voice_id)[1])))
+
+    @staticmethod
+    def _clarity_overlay(profile):
+        result = dict(profile)
+        if result["clarity_mode"]:
+            result["index_rate"] = min(result["index_rate"], 0.4)
+            result["protect"] = min(result["protect"], 0.1)
+        return result
+
+    @_serialized
+    def reset_voice_profile(self, voice_id):
+        if voice_id != self.voice_id:
+            raise ValueError("Выбранный голос изменился. Повторите действие для текущего голоса")
+        if self.state == "loading":
+            raise RuntimeError("Дождитесь загрузки текущей модели")
+        self.models.voice_paths(voice_id)
+        self.voice_profiles.pop(voice_id, None)
+        self.select_voice(voice_id)
+
     @_serialized
     def update_params(self, changes: dict):
         changes = validate_params(changes)
         previous = dict(self.params)
-        if changes.get("clarity_mode") is False:
-            voice = next((v for v in self.models.list_voices() if v["id"] == self.voice_id), {})
-            profile = voice.get("recommendedParams") or {}
-            # Turning the speech preset off restores the selected voice's timbre profile.
-            changes = {"index_rate": profile.get("index_rate", DEFAULT_PARAMS["index_rate"]),
-                       "protect": profile.get("protect", DEFAULT_PARAMS["protect"]), **changes}
-        changes = validate_params(changes)
+        tuning = None
+        if self.voice_id and any(k in changes for k in VOICE_PARAM_KEYS):
+            tuning, has_index = self._voice_profile(self.voice_id)
+            tuning.update({k: v for k, v in changes.items() if k in VOICE_PARAM_KEYS})
+            if not has_index:
+                tuning["index_rate"] = 0.0
+            changes = {**changes, **self._clarity_overlay(tuning)}
+            changes.update(constrain_profile({k: changes[k] for k in VOICE_PARAM_KEYS}, self.applicability))
         with self.lock:
             self.params.update(changes)
             if self.params["clarity_mode"]:
                 self.params["index_rate"] = min(self.params["index_rate"], 0.4)
                 self.params["protect"] = min(self.params["protect"], 0.1)
+            self.params.update(constrain_profile(self.params, self.applicability))
         if "monitor" in changes:
             try:
                 if self.params["monitor"]:
@@ -337,6 +385,8 @@ class AudioEngine:
             except Exception as e:
                 self.params.update(previous)
                 raise RuntimeError(f"Не удалось включить прослушивание: {e}") from e
+        if tuning is not None:
+            self.voice_profiles[self.voice_id] = tuning
         if self.vc is not None and self.state == "running":
             if "noise_gate_db" in changes:
                 self._pending_cfg({"silent_threshold": self.params["noise_gate_db"]})
@@ -353,14 +403,19 @@ class AudioEngine:
 
     @_serialized
     def set_preset(self, name):
-        if name not in PRESETS:
-            raise ValueError("Неизвестный режим")
+        name = normalize_preset(name)
         if self.state == "loading":
             raise RuntimeError("Дождитесь загрузки модели перед сменой режима")
         if name == self.preset:
             return
         self.preset = name
         self.params["f0_method"] = PRESETS[name]["f0_method"]
+        if self.voice_id:
+            # A preset chooses its F0 method for this voice; later voice switches
+            # restore each voice's own F0 instead of leaking the previous one.
+            tuning, _ = self._voice_profile(self.voice_id)
+            tuning["f0_method"] = self.params["f0_method"]
+            self.voice_profiles[self.voice_id] = tuning
         if self.state in ("running", "loading"):
             self.restart()
         self.on_state()
@@ -399,16 +454,13 @@ class AudioEngine:
         if self.state == "loading":
             raise RuntimeError("Дождитесь загрузки текущей модели перед сменой голоса")
         pth, index = self.models.voice_paths(voice_id)
+        defaults = self.effective_voice_profile(voice_id)
         voice = next((v for v in self.models.list_voices() if v["id"] == voice_id), {})
-        profile = voice.get("recommendedParams") or {}
-        defaults = {k: profile[k] for k in ("index_rate", "protect", "f0_method") if k in profile}
-        defaults["pitch"] = voice.get("suggestedPitch", 0)
         with self.lock:
             self.voice_id = voice_id
+            self.has_index = bool(index)
+            self.applicability = model_applicability(voice.get("checkpoint"), bool(index))
             self.params.update(defaults)
-            if self.params["clarity_mode"]:
-                self.params["index_rate"] = min(self.params["index_rate"], 0.4)
-                self.params["protect"] = min(self.params["protect"], 0.1)
             if self.vc is not None and self.state == "running":
                 self._cfg_queue = getattr(self, "_cfg_queue", [])
                 self._cfg_queue.append({
@@ -776,6 +828,8 @@ class AudioEngine:
             "devices": self.devices,
             "compute": self.compute,
             "stats": self.stats,
+            "voiceProfile": {"saved": self.voice_id in self.voice_profiles,
+                             "hasIndex": self.has_index, "applicability": self.applicability},
         }
 
 
@@ -802,10 +856,10 @@ def convert_clip(models, voice_id, audio: np.ndarray, params: dict, preset="qual
             sf.write(source, audio, SR, subtype="FLOAT")
             vc.convert_audio(
                 str(source), str(target), pth, index or "",
-                pitch=int(params.get("pitch", 0)), f0_method="rmvpe",
+                pitch=int(params.get("pitch", 0)), f0_method=params.get("f0_method", "rmvpe"),
                 index_rate=float(params.get("index_rate", 0.75)),
                 protect=float(params.get("protect", 0.33)),
-                volume_envelope=1.0, inference_engine="torch",
+                volume_envelope=float(params.get("volume_envelope", 1.0)), inference_engine="torch",
             )
             out, sr = sf.read(target, dtype="float32")
             if sr != SR:

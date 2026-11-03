@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { RefreshCw, Volume2, Mic, CheckCircle2, CircleAlert, ExternalLink, Loader2, Cpu, Zap, FolderOpen } from 'lucide-react'
+import { RefreshCw, Volume2, Mic, CheckCircle2, CircleAlert, Loader2, Cpu, Zap, FolderOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { ParamSlider, ParamSwitch, setParam } from '@/components/param-controls'
+import { CableSetup } from '@/components/cable-setup'
 import { HotkeyRecorder, KeyRecorder } from '@/components/hotkey-recorder'
 import { useStore } from '@/lib/store'
 import { api, type SystemInfo } from '@/lib/api'
@@ -35,7 +35,7 @@ export function SettingsPage({ tab, onTab }: { tab: string; onTab: (t: string) =
             <TabsTrigger value="app">Приложение</TabsTrigger>
           </TabsList>
         </div>
-        <ScrollArea className="mt-4 min-h-0 flex-1">
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
           <div className="w-full px-8 pb-10">
             <TabsContent value="devices"><DevicesTab /></TabsContent>
             <TabsContent value="virtual"><VirtualTab /></TabsContent>
@@ -44,7 +44,7 @@ export function SettingsPage({ tab, onTab }: { tab: string; onTab: (t: string) =
             <TabsContent value="hotkeys"><HotkeysTab /></TabsContent>
             <TabsContent value="app"><AppTab /></TabsContent>
           </div>
-        </ScrollArea>
+        </div>
       </Tabs>
     </div>
   )
@@ -197,36 +197,20 @@ function VirtualTab() {
   const { devs, loading, refresh } = useDevices()
   const running = status!.engine.state === 'running' || status!.engine.state === 'loading'
   const cableIn = devs?.outputs.find((o) => o.isVirtualCable)
-  const cableOut = devs?.inputs.find((o) => o.isVirtualCable)
   const routed = cableIn && status!.engine.devices.output === cableIn.id
 
   return (
     <div className="space-y-5">
-      <Section title="Состояние" description="Vocalis не создаёт виртуальный микрофон сам — для этого нужен драйвер виртуального аудиокабеля. Мы рекомендуем бесплатный VB-CABLE от VB-Audio.">
-        <StatusLine ok={!!cableIn} okText={`Найден драйвер: ${cableIn?.name}`} badText="VB-CABLE не найден — установите драйвер по инструкции ниже" />
-        <StatusLine ok={!!cableOut} okText={`Виртуальный микрофон для приложений: ${cableOut?.name}`} badText="Устройство записи «CABLE Output» не обнаружено" />
-        <StatusLine ok={!!routed} okText="Vocalis выводит голос в виртуальный кабель" badText="Вывод Vocalis ещё не направлен в «CABLE Input»" />
-        <div className="flex gap-2">
+      <CableSetup />
+      <Section title="Маршрутизация" description="После установки и перезагрузки Windows выберите виртуальный кабель как вывод Vocalis.">
+        {devs ? <StatusLine ok={!!routed} okText="Vocalis выводит голос в виртуальный кабель" badText="Вывод Vocalis ещё не направлен в «CABLE Input»" /> : <p className="text-sm text-muted-foreground">Получаем список аудиоустройств…</p>}
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => refresh(true)} disabled={loading || running}>
-            <RefreshCw className={loading ? 'animate-spin' : ''} /> Проверить снова
+            <RefreshCw className={loading ? 'animate-spin' : ''} /> Обновить аудиоустройства
           </Button>
           {cableIn && !routed && (
-            <Button size="sm" onClick={() => api.setDevices({ output: cableIn.id }).then(() => toast.success('Вывод направлен в CABLE Input')).catch((e) => toast.error(e.message))}>
-              Направить вывод в CABLE Input
-            </Button>
+            <Button size="sm" onClick={() => api.setDevices({ output: cableIn.id }).then(() => toast.success('Вывод направлен в CABLE Input')).catch((e) => toast.error(e.message))}>Направить вывод в CABLE Input</Button>
           )}
-        </div>
-      </Section>
-      <Section title="1. Установка VB-CABLE">
-        <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground marker:text-foreground">
-          <li>Скачайте <b className="text-foreground">VBCABLE_Driver_Pack</b> с официального сайта VB-Audio (бесплатно, donationware).</li>
-          <li>Распакуйте архив, щёлкните правой кнопкой по <code className="rounded bg-muted px-1">VBCABLE_Setup_x64.exe</code> → «Запуск от имени администратора» → Install Driver.</li>
-          <li>Перезагрузите компьютер, затем нажмите «Проверить снова» выше.</li>
-        </ol>
-        <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={() => bridge.openExternal('https://vb-audio.com/Cable/')}>
-            <ExternalLink /> vb-audio.com/Cable
-          </Button>
           <Button variant="ghost" size="sm" onClick={() => bridge.openSoundSettings()}>Параметры звука Windows</Button>
         </div>
       </Section>
@@ -234,7 +218,7 @@ function VirtualTab() {
         <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-3 text-center text-xs">
           <Node title="Ваш микрофон" sub="физическое устройство" />
           <Arrow />
-          <Node title="Vocalis" sub="RVC на вашем GPU" accent />
+          <Node title="Vocalis" sub="локальное преобразование RVC" accent />
           <Arrow />
           <Node title="CABLE Input" sub="вывод Vocalis" />
         </div>
@@ -336,7 +320,7 @@ function PerformanceTab() {
       <Section title="Аппаратное ускорение">
         <Row label="Вычислительное устройство" hint={sys?.hardware.cuda ? `Обнаружено: ${sys.hardware.gpu} · CUDA ${sys.hardware.cudaVersion}` : 'CUDA-совместимая видеокарта NVIDIA не обнаружена'}>
           <ToggleGroup type="single" variant="outline" disabled={e.state === 'loading'} aria-label="Вычислительное устройство" value={e.compute} onValueChange={(v) => v && api.compute(v as 'auto' | 'cpu').catch((e) => toast.error(e.message))}>
-            <ToggleGroupItem value="auto" className="px-3 text-xs"><Zap className="size-3.5" /> GPU (CUDA)</ToggleGroupItem>
+            <ToggleGroupItem value="auto" className="px-3 text-xs"><Zap className="size-3.5" /> Авто (CUDA / CPU)</ToggleGroupItem>
             <ToggleGroupItem value="cpu" className="px-3 text-xs"><Cpu className="size-3.5" /> Только CPU</ToggleGroupItem>
           </ToggleGroup>
         </Row>
@@ -419,7 +403,7 @@ function AppTab() {
       <Section title="О программе">
         <Row label="Версия"><span className="text-sm text-muted-foreground">{info?.version}</span></Row>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Движок преобразования основан на открытом коде Applio (RVC, лицензия MIT). Готовые голосовые модели не входят в релиз. Собственные модели импортируются с диска. Аудио обрабатывается локально и никуда не отправляется.
+          Движок преобразования основан на открытом коде Applio (RVC, лицензия MIT). Голосовые модели — сторонние неофициальные фан-модели; сведения об источнике и лицензии каждой модели указаны в библиотеке. Аудио обрабатывается локально и никуда не отправляется.
         </p>
         <Button variant="ghost" size="sm" onClick={() => updateSettings({ acceptedNotice: false })}>Показать предупреждение о моделях снова</Button>
       </Section>

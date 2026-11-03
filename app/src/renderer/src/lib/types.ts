@@ -1,10 +1,13 @@
-export type Category = 'cartoon' | 'anime' | 'film_tv' | 'game' | 'other'
+export type Category = 'cartoon' | 'anime' | 'film_tv' | 'film' | 'series' | 'game' | 'bloggers' | 'other'
 
 export const CATEGORY_LABELS: Record<Category, string> = {
   cartoon: 'Мультфильмы',
   anime: 'Аниме',
   film_tv: 'Фильмы и сериалы',
+  film: 'Фильмы',
+  series: 'Сериалы',
   game: 'Видеоигры',
+  bloggers: 'Блогеры и стримеры',
   other: 'Другие',
 }
 
@@ -90,6 +93,7 @@ export interface EngineStatus {
   state: 'stopped' | 'loading' | 'running' | 'error'
   error: string | null
   voiceId: string | null
+  voiceProfile?: { saved: boolean; hasIndex: boolean; applicability?: { pitch: boolean; f0: boolean; index: boolean; protect: boolean } }
   preset: Preset
   params: EngineParams
   devices: { input: number | null; output: number | null; monitor: number | null }
@@ -150,10 +154,87 @@ export interface AppSettings {
   quickSwitchFavoritesOnly: boolean
 }
 
+export type SetupProfile = 'nvidia' | 'amd' | 'laptop' | 'cpu'
+
+export interface CableSetupInfo {
+  stage: 'checking' | 'installed' | 'available' | 'downloading' | 'extracting' | 'verifying' | 'launching' | 'awaiting-restart' | 'cancelled' | 'error'
+  detail: string
+  downloaded?: number
+  total?: number
+  error?: string
+  devices?: string[]
+}
+
+export interface SetupProgress {
+  profile: SetupProfile
+  stage: 'preparing' | 'downloading' | 'installing' | 'verifying' | 'complete' | 'cancelled' | 'error'
+  detail: string
+  error?: string
+}
+
 export interface EngineInfo {
   state: 'needs-setup' | 'installing' | 'starting' | 'ready' | 'crashed'
   port: number
   token: string
   log: string[]
   dev: boolean
+  setup?: SetupProgress
+  setupProfile?: SetupProfile
+}
+
+export interface CatalogProvider {
+  id: string
+  name: string
+  available: boolean
+  description: string
+}
+export interface CatalogProviderState {
+  id: string
+  state: 'online' | 'cache' | 'error'
+  message: string
+  checkedAt: number | null
+}
+export interface CatalogInstallSelection {
+  pth?: string
+  index?: string | null
+  archive?: string
+}
+export interface CatalogEntry {
+  /** Renderer-only snapshot marker; never grants installation permission. */
+  cachedMetadata?: boolean
+  discoveryVoiceId?: string
+  id: string
+  provider: string
+  voiceId: string
+  name: string
+  description: string
+  category: Category
+  language: string | null
+  author: string | null
+  sourceUrl: string
+  license: string
+  rights: { approved: boolean; reason: string; evidenceUrl?: string; verifiedAt?: string }
+  compatibility: 'unverified' | 'rvc-v1' | 'rvc-v2' | 'incompatible'
+  size: number | null
+  downloads: number | null
+  installed: boolean
+  job: JobInfo | null
+  canInstall: boolean
+  installReason?: string
+  languageConfidence?: 'declared' | 'unknown'
+  revision?: string
+  requiresSelection?: boolean
+  files?: { path: string; kind: 'pth' | 'index' | 'archive'; size: number; sha256: string }[]
+  installedVariants?: { voiceId: string; name: string; revision: string; files: string[] }[]
+  sourceState?: CatalogProviderState
+}
+export interface CatalogJob extends JobInfo {
+  voiceId: string
+  provider: string
+  id: string
+}
+export interface CatalogSearchResult {
+  items: CatalogEntry[]
+  providers: CatalogProviderState[]
+  cached: boolean
 }

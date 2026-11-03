@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Power, Loader2, Mic, Speaker, Headphones, Library, TriangleAlert, Gauge, Wand2, Cable } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Power, Loader2, Mic, Speaker, Headphones, Library, TriangleAlert, Gauge, Wand2, Cable, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -13,7 +13,7 @@ import { ParamSlider, ParamSwitch, setParam } from '@/components/param-controls'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { CATEGORY_LABELS, type DeviceList, type Preset } from '@/lib/types'
+import { CATEGORY_LABELS, type DeviceList, type Preset, type EngineParams } from '@/lib/types'
 import type { Page } from '@/App'
 
 export const PRESET_LABELS: Record<Preset, string> = { performance: 'Скорость', balanced: 'Баланс', quality: 'Качество' }
@@ -55,9 +55,9 @@ export function HomePage({ go }: { go: (p: Page, tab?: string) => void }) {
             </div>
             <h1 className="mt-6 text-2xl font-semibold tracking-tight">Голос не выбран</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {readyCount ? 'Выберите голос в библиотеке или в списке избранного.' : 'Добавьте собственную модель RVC в менеджере моделей.'}
+              {readyCount ? 'Выберите голос в библиотеке или в списке избранного.' : 'Загрузите хотя бы одну модель в библиотеке голосов.'}
             </p>
-            <Button variant="secondary" className="mt-4" onClick={() => go(readyCount ? 'library' : 'models')}>{readyCount ? 'Открыть библиотеку' : 'Добавить модель'}</Button>
+            <Button variant="secondary" className="mt-4" onClick={() => go('library')}>Открыть библиотеку</Button>
           </div>
         )}
 
@@ -91,7 +91,7 @@ export function HomePage({ go }: { go: (p: Page, tab?: string) => void }) {
       <aside className="w-80 shrink-0 border-l bg-card/40">
         <ScrollArea className="h-full">
           <div className="space-y-6 p-5">
-            <QuickSettings />
+            <QuickSettings go={go} />
             <Separator />
             <LiveMonitor />
             <Separator />
@@ -114,15 +114,15 @@ function StateLine() {
         <TriangleAlert className="size-4" /> {e.error?.slice(0, 90)}
       </span>
     )
-  if (e.state === 'loading') return <span className="text-warn">Загрузка модели и прогрев GPU…</span>
+  if (e.state === 'loading') return <span className="text-warn">Загрузка модели и подготовка {e.compute === 'cpu' ? 'CPU' : 'вычислительного устройства'}…</span>
   if (e.state !== 'running') return <span className="text-muted-foreground">Преобразование выключено</span>
   if (e.params.bypass) return <span className="text-warn">Bypass — звучит ваш оригинальный голос</span>
   if (e.params.ptt && !e.stats.pttHeld) return <span className="text-muted-foreground">Push-to-Talk: удерживайте клавишу, чтобы говорить</span>
   return <span className="text-live">● В эфире — голос преобразуется</span>
 }
 
-function QuickSettings() {
-  const { status, activeVoice } = useStore()
+function QuickSettings({ go }: { go: (p: Page, tab?: string) => void }) {
+  const { status } = useStore()
   const e = status!.engine
   const p = e.params
   return (
@@ -145,33 +145,7 @@ function QuickSettings() {
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
-      <ParamSwitch label="Чёткая речь" hint="Для микрофона: мягче переносит тембр и сильнее сохраняет согласные. Отключите, чтобы вернуть профиль голоса." checked={p.clarity_mode} onChange={(v) => setParam({ clarity_mode: v })} />
-      <ParamSlider
-        label="Тональность"
-        hint={activeVoice ? `Рекомендуется для мужского голоса: ${activeVoice.suggestedPitch > 0 ? '+' : ''}${activeVoice.suggestedPitch} полутонов. Для женского голоса — примерно на 12 меньше.` : 'Сдвиг высоты в полутонах'}
-        value={p.pitch}
-        min={-24}
-        max={24}
-        step={1}
-        format={(v) => `${v > 0 ? '+' : ''}${v} пт`}
-        onCommit={(v) => setParam({ pitch: v })}
-      />
-      {activeVoice && p.pitch !== activeVoice.suggestedPitch && (
-        <button className="-mt-3 text-xs text-primary hover:underline" onClick={() => setParam({ pitch: activeVoice.suggestedPitch })}>
-          Сбросить на рекомендуемую ({activeVoice.suggestedPitch > 0 ? '+' : ''}{activeVoice.suggestedPitch})
-        </button>
-      )}
-      <ParamSlider
-        label="Index rate"
-        disabled={p.clarity_mode}
-        hint="Насколько сильно подтягивать тембр к обучающим данным модели (.index). Выше — больше сходства, но возможны артефакты."
-        value={p.index_rate}
-        min={0}
-        max={1}
-        step={0.05}
-        format={(v) => v.toFixed(2)}
-        onCommit={(v) => setParam({ index_rate: v })}
-      />
+      <VoiceControls key={e.voiceId ?? 'none'} go={go} />
       <ParamSlider
         label="Noise Gate"
         hint="Блоки тише порога не обрабатываются и заглушаются — убирает шум и дыхание в паузах."
@@ -187,6 +161,77 @@ function QuickSettings() {
         <ParamSwitch label="Push-to-Talk" hint="Голос передаётся только пока удерживается клавиша PTT (настраивается в разделе «Горячие клавиши»)." checked={p.ptt} onChange={(v) => setParam({ ptt: v })} />
       </div>
     </div>
+  )
+}
+
+function VoiceControls({ go }: { go: (p: Page, tab?: string) => void }) {
+  const { status, activeVoice } = useStore()
+  const e = status!.engine
+  const p = e.params
+  const [operation, setOperation] = useState<'idle' | 'saving' | 'resetting' | 'error'>('idle')
+  const mounted = useRef(true)
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  const selectedId = useRef(activeVoice?.id)
+  selectedId.current = activeVoice?.id
+  useEffect(() => { setOperation('idle') }, [activeVoice?.id])
+  const disabled = !activeVoice || !e.voiceProfile || e.state === 'loading' || operation === 'saving' || operation === 'resetting'
+  const apply = async (patch: Partial<EngineParams>) => {
+    const id = activeVoice?.id
+    if (!id || disabled) return undefined
+    setOperation('saving')
+    try {
+      const result = await api.voiceParams(id, patch)
+      if (mounted.current && selectedId.current === id) setOperation('idle')
+      return result
+    } catch (error) {
+      if (mounted.current && selectedId.current === id) setOperation('error')
+      toast.error('Настройки голоса не сохранены', { description: (error as Error).message })
+      return undefined
+    }
+  }
+  const reset = async () => {
+    const id = activeVoice?.id
+    if (!id || disabled) return
+    setOperation('resetting')
+    try {
+      await api.resetVoiceProfile(id)
+      if (mounted.current && selectedId.current === id) {
+        setOperation('idle')
+        toast.success('Восстановлены базовые настройки этого голоса')
+      }
+    } catch (error) {
+      if (mounted.current && selectedId.current === id) setOperation('error')
+      toast.error('Не удалось сбросить настройки голоса', { description: (error as Error).message })
+    }
+  }
+  return (
+    <section aria-label="Настройки этого голоса" className="space-y-4 border-y py-4">
+      <div className="space-y-2">
+        <h2 className="text-sm font-medium">Настройки этого голоса</h2>
+        <p className="text-xs text-muted-foreground">{activeVoice ? activeVoice.nameRu : 'Выберите модель в библиотеке'}</p>
+        {activeVoice && <p role="status" className="text-xs text-muted-foreground">
+          {operation === 'saving' ? 'Сохраняем изменения…' : operation === 'resetting' ? 'Восстанавливаем базовые настройки…' : operation === 'error' ? 'Последнее изменение не сохранено. Повторите настройку.' : !e.voiceProfile ? 'Получаем сведения о настройках…' : e.voiceProfile.saved ? 'Мои настройки · сохранены' : 'Базовые настройки модели'}
+        </p>}
+        <p className="text-xs leading-relaxed text-muted-foreground">Изменения сохраняются отдельно для этого голоса и используются также в примере.</p>
+      </div>
+      <ol className="list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-muted-foreground">
+        <li>Для похожего тембра подберите тональность под свой голос, затем сравните влияние Index rate.</li>
+        <li>Если согласные искажены, уменьшите protect или включите «Чёткую речь».</li>
+        <li>Если звук заикается, проверьте режим «Скорость» и устройство CPU/GPU в производительности.</li>
+      </ol>
+      <ParamSlider disabled={disabled || e.voiceProfile?.applicability?.pitch === false} label="Тональность" hint="Сдвиг высоты в полутонах. Подбирайте небольшими шагами под свой диапазон; универсального значения для мужского или женского голоса нет." value={p.pitch} min={-24} max={24} step={1} format={(v) => `${v > 0 ? '+' : ''}${v} пт`} onCommit={(v) => apply({ pitch: v })} />
+      {e.voiceProfile?.applicability?.f0 === false && <p className="text-xs leading-relaxed text-muted-foreground">Модель без F0 не использует тональность и защиту согласных.</p>}
+      <ParamSlider disabled={disabled || p.clarity_mode || e.voiceProfile?.hasIndex === false || e.voiceProfile?.applicability?.index === false} label="Index rate" hint="Влияние необязательного файла .index на тембр. Большее значение может усилить сходство, но также артефакты; сравнивайте на одной фразе." value={p.index_rate} min={0} max={1} step={0.05} format={(v) => v.toFixed(2)} onCommit={(v) => apply({ index_rate: v })} />
+      {e.voiceProfile?.hasIndex === false && <p className="text-xs leading-relaxed text-muted-foreground">Файл .index не подключён. Он необязателен; Index rate недоступен.</p>}
+      <ParamSlider disabled={disabled || p.clarity_mode || e.voiceProfile?.applicability?.protect === false} label="Защита согласных (protect)" hint="Меньше — сильнее сохраняются согласные и дыхание исходной речи. 0.5 выключает защиту. Сравнивайте разборчивость и сходство тембра." value={p.protect} min={0} max={0.5} step={0.01} format={(v) => v.toFixed(2)} onCommit={(v) => apply({ protect: v })} />
+      <ParamSwitch disabled={disabled} label="Чёткая речь" hint="Уменьшает влияние индекса и усиливает защиту согласных. После выключения возвращаются ваши ручные Index rate и protect." checked={p.clarity_mode} onChange={(v) => { void apply({ clarity_mode: v }) }} />
+      {p.clarity_mode && <p className="text-xs leading-relaxed text-muted-foreground">«Чёткая речь» управляет Index rate и protect. Выключите её для ручной настройки.</p>}
+      {e.state === 'running' && !p.bypass && e.stats.realtimeFactor > 1 && <p role="status" className="rounded-md bg-warn/10 p-2 text-xs text-warn">Обработка не успевает: выберите режим «Скорость» и проверьте CPU/GPU. Настройка тембра сама по себе не устранит перегрузку.</p>}
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" disabled={disabled || !e.voiceProfile?.saved} onClick={reset}>{operation === 'resetting' ? <Loader2 aria-hidden="true" className="animate-spin" /> : <RotateCcw aria-hidden="true" />} Сбросить настройки голоса</Button>
+        <Button size="sm" variant="ghost" onClick={() => go('settings', 'performance')}>Производительность</Button>
+      </div>
+    </section>
   )
 }
 

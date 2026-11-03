@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Search, Star, Download, Check, Play, Square, Loader2, X, ShieldAlert, Info, FileAudio } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Search, Star, Download, Check, Play, Square, Loader2, X, ShieldAlert, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -13,7 +13,6 @@ import { VoiceAvatar } from '@/components/voice-avatar'
 import { usePreview } from '@/components/voice-preview'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
-import { bridge } from '@/lib/bridge'
 import { cn, formatBytes } from '@/lib/utils'
 import { CATEGORY_LABELS, type Category, type Voice } from '@/lib/types'
 import type { Page } from '@/App'
@@ -25,21 +24,6 @@ export function LibraryPage({ go }: { go: (p: Page) => void }) {
   const [q, setQ] = useState('')
   const [cat, setCat] = useState<'all' | 'fav' | Category>('all')
   const [sort, setSort] = useState<Sort>('name')
-  const [inputReady, setInputReady] = useState(false)
-  const [pickingInput, setPickingInput] = useState(false)
-  useEffect(() => { api.previewInputInfo().then((r) => setInputReady(r.ready)).catch(() => {}) }, [])
-  const chooseInput = async () => {
-    setPickingInput(true)
-    try {
-      const path = await bridge.openFile({ title: 'Ваш пример речи (WAV, до 30 секунд)', filters: [{ name: 'WAV audio', extensions: ['wav'] }] })
-      if (path) {
-        await api.previewInput(path)
-        setInputReady(true)
-        toast.success('Аудио для примеров выбрано')
-      }
-    } catch (e) { toast.error('Не удалось выбрать пример', { description: (e as Error).message }) }
-    finally { setPickingInput(false) }
-  }
 
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -67,15 +51,12 @@ export function LibraryPage({ go }: { go: (p: Page) => void }) {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Библиотека голосов</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {voices.filter((v) => v.status === 'ready').length} из {voices.length} моделей доступно. Добавьте собственный голос RVC и WAV-файл для прослушивания.
+              {voices.filter((v) => v.status === 'ready').length} из {voices.length} моделей загружено. Нажмите кнопку прослушивания на карточке, чтобы услышать пример.
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => go('models')}>Менеджер моделей</Button>
+          <div className="flex flex-wrap gap-2"><Button variant="secondary" size="sm" onClick={() => go('catalog')}>Каталог голосов</Button><Button variant="outline" size="sm" onClick={() => go('models')}>Менеджер моделей</Button></div>
         </div>
-        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          <Button variant="outline" size="sm" disabled={pickingInput} onClick={chooseInput}><FileAudio /> {inputReady ? 'Сменить WAV для примеров' : 'Выбрать WAV для примеров'}</Button>
-          <span>{inputReady ? 'Ваш файл будет преобразован выбранной моделью.' : 'В релиз не входят чужие голоса и записи. Нужен ваш WAV до 30 секунд.'}</span>
-        </div>
+        <p className="text-xs text-muted-foreground">Пример: локальный русский системный голос Windows → выбранная RVC-модель. Синтетическая речь помогает сравнить тембр; качество микрофона может отличаться. Перед прослушиванием остановите преобразование.</p>
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative min-w-60 flex-1">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -106,7 +87,7 @@ export function LibraryPage({ go }: { go: (p: Page) => void }) {
           {list.map((v) => (
             <VoiceCard key={v.id} voice={v} />
           ))}
-          {!list.length && <div className="col-span-full space-y-3 py-16 text-center text-sm text-muted-foreground"><p>{voices.length ? 'Ничего не найдено' : 'Пока нет голосов. Импортируйте свою модель RVC.'}</p>{!voices.length && <Button variant="secondary" onClick={() => go('models')}>Добавить модель</Button>}</div>}
+          {!list.length && <p className="col-span-full py-16 text-center text-sm text-muted-foreground">Ничего не найдено</p>}
         </div>
       </ScrollArea>
     </div>
@@ -203,7 +184,7 @@ function VoiceCard({ voice: v }: { voice: Voice }) {
                   </Button>
                 </span>
               </TooltipTrigger>
-              <TooltipContent>Прослушать ваш WAV этим голосом. Остановите живое преобразование перед подготовкой примера.</TooltipContent>
+              <TooltipContent>{'Прослушать: «Привет! Ну что, готов к приключениям? Тогда поехали!»'}</TooltipContent>
             </Tooltip>
           </>
         ) : downloading ? (

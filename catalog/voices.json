@@ -42,13 +42,236 @@
       "licenseUrl": "https://huggingface.co/IAHispano/Applio/blob/3ff370b7023086f57e200ef86a9a251ddf4da472/README.md"
     }
   ],
-  "voices": [],
+  "voices": [
+    {
+      "id": "maizenberg-ru",
+      "name": "Майзенберг",
+      "nameRu": "Майзенберг",
+      "franchise": "Даниил Волков",
+      "category": "other",
+      "description": "RVC v2, 48 кГц, около 35 минут одного спикера. Автор заявляет разрешение владельца голоса; действуют отдельная лицензия, требования маркировки AI и ограничения использования.",
+      "language": "ru",
+      "suggestedPitch": 0,
+      "accent": "#a78bfa",
+      "wikipedia": null,
+      "author": "firexrwt",
+      "sourceProvider": "huggingface",
+      "sourceId": "firexrwt/maizenberg-rvc-v1",
+      "sourceUrl": "https://huggingface.co/firexrwt/maizenberg-rvc-v1/blob/4a6271ede5cb0467d0c356f79b485b314d5a0f0d/README.md",
+      "languageEvidenceUrl": "https://huggingface.co/firexrwt/maizenberg-rvc-v1/blob/4a6271ede5cb0467d0c356f79b485b314d5a0f0d/README.md",
+      "trainingLanguageStatus": "author-declared",
+      "compatibilityStatus": "not-tested",
+      "model": {
+        "title": "Майзенберг",
+        "format": "RVC (.pth + .index)",
+        "repo": "firexrwt/maizenberg-rvc-v1",
+        "revision": "4a6271ede5cb0467d0c356f79b485b314d5a0f0d",
+        "upstream": "https://huggingface.co/firexrwt/maizenberg-rvc-v1",
+        "license": "Maizenberg Responsible Voice License 1.0",
+        "licenseUrl": "https://huggingface.co/firexrwt/maizenberg-rvc-v1/blob/4a6271ede5cb0467d0c356f79b485b314d5a0f0d/LICENSE.md",
+        "licenseNote": "Лицензия автора разрешает бесплатное скачивание/использование при соблюдении условий. Публичное аудио требует маркировки AI и указания авторства; реклама, заказные работы, коммерческие приложения/сервисы требуют отдельного разрешения. Исходный датасет не лицензирован этой лицензией.",
+        "rights": {
+          "status": "unverified",
+          "datasetLicense": null,
+          "evidenceUrl": null,
+          "verifiedAt": null,
+          "sourceUrl": "https://huggingface.co/firexrwt/maizenberg-rvc-v1/blob/4a6271ede5cb0467d0c356f79b485b314d5a0f0d/README.md",
+          "checkedAt": "2026-11-03",
+          "note": "Метаданные источника проверены; законность и права на исходные записи не сертифицированы Vocalis."
+        },
+        "files": [
+          {
+            "kind": "pth",
+            "path": "maizenberg_rvc_v1.pth",
+            "url": "https://huggingface.co/firexrwt/maizenberg-rvc-v1/resolve/4a6271ede5cb0467d0c356f79b485b314d5a0f0d/maizenberg_rvc_v1.pth",
+            "size": 57591325,
+            "sha256": "16cb33db73b081fbf22cb1f35d7eb9bc2152cebcea5227fa566c7fe5e281da49"
+          },
+          {
+            "kind": "index",
+            "path": "maizenberg_rvc_v1.index",
+            "url": "https://huggingface.co/firexrwt/maizenberg-rvc-v1/resolve/4a6271ede5cb0467d0c356f79b485b314d5a0f0d/maizenberg_rvc_v1.index",
+            "size": 360729739,
+            "sha256": "d97d6076d26909fb4c4570f031fafef543308c854a97ebba35d05f4ccd100d17"
+          }
+        ]
+      },
+      "recommendedParams": {
+        "pitch": 0,
+        "f0_method": "rmvpe",
+        "index_rate": 0.5,
+        "protect": 0.5
+      }
+    },
+    {
+      "id": "nyamura-ru",
+      "name": "Nyamura — русский",
+      "nameRu": "Nyamura — русский",
+      "franchise": "Nyamura",
+      "category": "other",
+      "description": "По карточке автора: модель под русскую речь, 81 сэмпл, 350 эпох. Условия использования весов и исходных записей не указаны.",
+      "language": "ru",
+      "suggestedPitch": 0,
+      "accent": "#a78bfa",
+      "wikipedia": null,
+      "author": "RVC-RU",
+      "sourceProvider": "huggingface",
+      "sourceId": "RVC-RU/RVC-Nyamura-RU",
+      "sourceUrl": "https://huggingface.co/RVC-RU/RVC-Nyamura-RU/blob/2a62d63e3364c307cd8923f23c276813e26c6f5c/README.md",
+      "languageEvidenceUrl": "https://huggingface.co/RVC-RU/RVC-Nyamura-RU/blob/2a62d63e3364c307cd8923f23c276813e26c6f5c/README.md",
+      "trainingLanguageStatus": "author-declared",
+      "compatibilityStatus": "not-tested",
+      "model": {
+        "title": "Nyamura — русский",
+        "format": "RVC (.pth + .index)",
+        "repo": "RVC-RU/RVC-Nyamura-RU",
+        "revision": "2a62d63e3364c307cd8923f23c276813e26c6f5c",
+        "upstream": "https://huggingface.co/RVC-RU/RVC-Nyamura-RU",
+        "license": "Не указана",
+        "licenseUrl": "https://huggingface.co/RVC-RU/RVC-Nyamura-RU/blob/2a62d63e3364c307cd8923f23c276813e26c6f5c/README.md",
+        "licenseNote": "Лицензия не указана. Публичное наличие весов и датасета не подтверждает права на использование записей или распространение.",
+        "rights": {
+          "status": "unverified",
+          "datasetLicense": null,
+          "evidenceUrl": null,
+          "verifiedAt": null,
+          "sourceUrl": "https://huggingface.co/RVC-RU/RVC-Nyamura-RU/blob/2a62d63e3364c307cd8923f23c276813e26c6f5c/README.md",
+          "checkedAt": "2026-11-03",
+          "note": "Метаданные источника проверены; законность и права на исходные записи не сертифицированы Vocalis."
+        },
+        "files": [
+          {
+            "kind": "pth",
+            "path": "model/nyamura-ru.pth",
+            "url": "https://huggingface.co/RVC-RU/RVC-Nyamura-RU/resolve/2a62d63e3364c307cd8923f23c276813e26c6f5c/model/nyamura-ru.pth",
+            "size": 55028048,
+            "sha256": "37a0a90b814e7ddfc625515f96a6900769a372ed2503698ffdf84315810d32ab"
+          },
+          {
+            "kind": "index",
+            "path": "model/added_IVF762_Flat_nprobe_1_nyamura-ru_v1.index",
+            "url": "https://huggingface.co/RVC-RU/RVC-Nyamura-RU/resolve/2a62d63e3364c307cd8923f23c276813e26c6f5c/model/added_IVF762_Flat_nprobe_1_nyamura-ru_v1.index",
+            "size": 31486459,
+            "sha256": "1eb96bb58d2aeb5d892506543faec6f3a270d7cc9896d9f70949d787d7334401"
+          }
+        ]
+      }
+    },
+    {
+      "id": "glad-valakas-ru",
+      "name": "GLAD VALAKAS — русский",
+      "nameRu": "GLAD VALAKAS — русский",
+      "franchise": "GLAD VALAKAS",
+      "category": "other",
+      "description": "По карточке автора: русскоязычная модель, 350 эпох. Репозиторий заявляет MIT; права на исходную речь отдельно не подтверждены.",
+      "language": "ru",
+      "suggestedPitch": 0,
+      "accent": "#a78bfa",
+      "wikipedia": null,
+      "author": "RVC-RU",
+      "sourceProvider": "huggingface",
+      "sourceId": "RVC-RU/glad-valakas-ru",
+      "sourceUrl": "https://huggingface.co/RVC-RU/glad-valakas-ru/blob/5bb96b17628f654e7305c062111bc7a2fc65b1ef/README.md",
+      "languageEvidenceUrl": "https://huggingface.co/RVC-RU/glad-valakas-ru/blob/5bb96b17628f654e7305c062111bc7a2fc65b1ef/README.md",
+      "trainingLanguageStatus": "author-declared",
+      "compatibilityStatus": "not-tested",
+      "model": {
+        "title": "GLAD VALAKAS — русский",
+        "format": "RVC (.pth + .index)",
+        "repo": "RVC-RU/glad-valakas-ru",
+        "revision": "5bb96b17628f654e7305c062111bc7a2fc65b1ef",
+        "upstream": "https://huggingface.co/RVC-RU/glad-valakas-ru",
+        "license": "MIT",
+        "licenseUrl": "https://huggingface.co/RVC-RU/glad-valakas-ru/blob/5bb96b17628f654e7305c062111bc7a2fc65b1ef/README.md",
+        "licenseNote": "MIT — заявление в карточке репозитория. Условия и права на исходные записи отдельно не подтверждены; это не сертификация прав на голос.",
+        "rights": {
+          "status": "unverified",
+          "datasetLicense": null,
+          "evidenceUrl": null,
+          "verifiedAt": null,
+          "sourceUrl": "https://huggingface.co/RVC-RU/glad-valakas-ru/blob/5bb96b17628f654e7305c062111bc7a2fc65b1ef/README.md",
+          "checkedAt": "2026-11-03",
+          "note": "Метаданные источника проверены; законность и права на исходные записи не сертифицированы Vocalis."
+        },
+        "files": [
+          {
+            "kind": "pth",
+            "path": "valakas-ru.pth",
+            "url": "https://huggingface.co/RVC-RU/glad-valakas-ru/resolve/5bb96b17628f654e7305c062111bc7a2fc65b1ef/valakas-ru.pth",
+            "size": 55224656,
+            "sha256": "626dd9b0c2327923cf6fd3f71730d707d7412b875e98cb12a661c483fec67313"
+          },
+          {
+            "kind": "index",
+            "path": "added_IVF663_Flat_nprobe_1_valakas-ru_v2.index",
+            "url": "https://huggingface.co/RVC-RU/glad-valakas-ru/resolve/5bb96b17628f654e7305c062111bc7a2fc65b1ef/added_IVF663_Flat_nprobe_1_valakas-ru_v2.index",
+            "size": 81681739,
+            "sha256": "ab371049c8110aa2c6be6b92b6a1a9684bf117856d190dde586dd60af321cee6"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ivona-maxim-ru",
+      "name": "Максим — русский",
+      "nameRu": "Максим — русский",
+      "franchise": "Ivona Maxim",
+      "category": "other",
+      "description": "По карточке автора: 30 минут речи TTS Ivona Maxim, обычные тексты и скороговорки, 16 эпох. Источник заявляет MIT для модели, права на исходную синтетическую речь неизвестны.",
+      "language": "ru",
+      "suggestedPitch": 0,
+      "accent": "#a78bfa",
+      "wikipedia": null,
+      "author": "cotheq",
+      "sourceProvider": "huggingface",
+      "sourceId": "cotheq/ivona-maxim",
+      "sourceUrl": "https://huggingface.co/cotheq/ivona-maxim/blob/6142861446921db1fac3cbbe6696bd8605ab58d8/README.md",
+      "languageEvidenceUrl": "https://huggingface.co/cotheq/ivona-maxim/blob/6142861446921db1fac3cbbe6696bd8605ab58d8/README.md",
+      "trainingLanguageStatus": "author-declared",
+      "compatibilityStatus": "not-tested",
+      "model": {
+        "title": "Максим — русский",
+        "format": "RVC (.pth + .index)",
+        "repo": "cotheq/ivona-maxim",
+        "revision": "6142861446921db1fac3cbbe6696bd8605ab58d8",
+        "upstream": "https://huggingface.co/cotheq/ivona-maxim",
+        "license": "MIT",
+        "licenseUrl": "https://huggingface.co/cotheq/ivona-maxim/blob/6142861446921db1fac3cbbe6696bd8605ab58d8/README.md",
+        "licenseNote": "MIT — заявление автора модели. Автор не связан с Ivona; права и условия исходного синтезатора не подтверждены. Не считать MIT репозитория лицензией на исходную TTS-речь.",
+        "rights": {
+          "status": "unverified",
+          "datasetLicense": null,
+          "evidenceUrl": null,
+          "verifiedAt": null,
+          "sourceUrl": "https://huggingface.co/cotheq/ivona-maxim/blob/6142861446921db1fac3cbbe6696bd8605ab58d8/README.md",
+          "checkedAt": "2026-11-03",
+          "note": "Метаданные источника проверены; законность и права на исходные записи не сертифицированы Vocalis."
+        },
+        "files": [
+          {
+            "kind": "pth",
+            "path": "botMaxim_e16_s8672.pth",
+            "url": "https://huggingface.co/cotheq/ivona-maxim/resolve/6142861446921db1fac3cbbe6696bd8605ab58d8/botMaxim_e16_s8672.pth",
+            "size": 55222383,
+            "sha256": "68875827544bf846932f05f6f0109ee7afed83fe419cdc61044722a32dc53658"
+          },
+          {
+            "kind": "index",
+            "path": "added_IVF2410_Flat_nprobe_1_botMaxim_v2.index",
+            "url": "https://huggingface.co/cotheq/ivona-maxim/resolve/6142861446921db1fac3cbbe6696bd8605ab58d8/added_IVF2410_Flat_nprobe_1_botMaxim_v2.index",
+            "size": 296952179,
+            "sha256": "61298a2ab4970d0599cd02a678dffee87a3e88b3732bd07f3d5f681427f51714"
+          }
+        ]
+      }
+    }
+  ],
   "voicePolicy": {
-    "allowedLicenses": [
-      "CC0-1.0"
-    ],
-    "requireDatasetLicense": "CC0-1.0",
-    "requireRightsEvidence": true,
-    "note": "Factory voices require explicit CC0 rights for model and source recordings. No voices are approved in this release."
+    "mode": "third-party-source-downloads",
+    "requireCC0": false,
+    "requireDatasetLicense": false,
+    "requireRightsEvidence": false,
+    "decisionDate": "2026-11-03",
+    "note": "По явному решению владельца проекта: единый каталог сторонних моделей, скачивание локально из исходных источников по их условиям. Неизвестные права показываются честно и не выдаются за одобрение. Веса и аудио не включаются в поставку."
   }
 }

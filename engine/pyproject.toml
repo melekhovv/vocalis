@@ -1,6 +1,6 @@
 [project]
 name = "vocalis-engine"
-version = "0.2.0"
+version = "0.2.4"
 description = "Local real-time RVC voice conversion engine for Vocalis"
 requires-python = ">=3.11,<3.13"
 dependencies = [
@@ -40,3 +40,31 @@ explicit = true
 [tool.uv.sources]
 torch = { index = "pytorch-cu128" }
 torchaudio = { index = "pytorch-cu128" }
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+exclude = [
+  "vendor",
+  ".venv",
+  "profiles",
+  "assets",
+  "data",
+]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+ignore = ["F841", "E701"]
+
+[tool.pyright]
+include = ["vcengine"]
+exclude = ["vendor", "tests", "profiles", ".venv"]
+extraPaths = ["vendor"]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+reportOptionalMemberAccess = "none"
+reportOptionalSubscript = "none"
+reportArgumentType = "none"
+reportCallIssue = "none"
+reportAttributeAccessIssue = "none"
+reportOperatorIssue = "none"

@@ -215,13 +215,14 @@ function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
 
   const pick = async (kind: 'pth' | 'index') => {
     const p = await bridge.openFile({
-      title: kind === 'pth' ? 'Файл модели RVC (.pth)' : 'Файл индекса (.index)',
-      filters: [{ name: kind === 'pth' ? 'RVC model' : 'Faiss index', extensions: [kind] }],
+      title: kind === 'pth' ? 'Модель RVC (.pth или .zip)' : 'Файл индекса (.index)',
+      filters: [{ name: kind === 'pth' ? 'RVC model' : 'Faiss index', extensions: kind === 'pth' ? ['pth', 'zip'] : ['index'] }],
     })
     if (!p) return
     if (kind === 'pth') {
       setPth(p)
-      if (!name) setName(p.split(/[\\/]/).pop()!.replace(/\.pth$/i, '').replace(/[_-]+/g, ' '))
+      if (/\.zip$/i.test(p)) setIndex(null)
+      if (!name) setName(p.split(/[\\/]/).pop()!.replace(/\.(pth|zip)$/i, '').replace(/[_-]+/g, ' '))
     } else setIndex(p)
   }
 
@@ -247,16 +248,16 @@ function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
         <DialogHeader>
           <DialogTitle>Импорт модели RVC</DialogTitle>
           <DialogDescription>
-            Поддерживаются модели RVC v1/v2 для инференса (.pth) и необязательный индекс (.index). Файл открывается в безопасном режиме — код из него не выполняется.
+            Поддерживаются RVC v1/v2: файл .pth с необязательным .index или ZIP с одной моделью .pth и не более чем одним .index. Архив распаковывается и проверяется приложением; код модели не выполняется.
           </DialogDescription>
         </DialogHeader>
         <div className="min-w-0 space-y-4">
           <div className="space-y-1.5">
             <Label>Название</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Мой голос" />
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Гомер Симпсон" />
           </div>
-          <FilePick label="Модель (.pth)" value={pth} disabled={busy} onPick={() => pick('pth')} />
-          <FilePick label="Индекс (.index) — необязательно" value={index} disabled={busy} onPick={() => pick('index')} onClear={() => setIndex(null)} />
+          <FilePick label="Модель (.pth или .zip)" value={pth} disabled={busy} onPick={() => pick('pth')} />
+          <FilePick label="Индекс (.index) — необязательно" value={index} disabled={busy || !!pth?.toLowerCase().endsWith('.zip')} onPick={() => pick('index')} onClear={() => setIndex(null)} />
           <div className="space-y-1.5">
             <Label>Категория</Label>
             <Select value={category} onValueChange={(v) => setCategory(v as Category)}>
