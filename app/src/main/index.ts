@@ -95,11 +95,13 @@ function engineInfo() {
 }
 
 function startEngine() {
+  if (engineProc || quitting) return
   if (!existsSync(pythonExe)) {
     setEngineState('needs-setup')
     return
   }
   setEngineState('starting')
+  const startedAt = Date.now()
   const proc = spawn(pythonExe, ['-u', '-m', 'vcengine.server', '--port', '0', '--parent-pid', String(process.pid)], {
     cwd: engineDir,
     env: { ...process.env, VOCALIS_TOKEN: token, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
@@ -115,8 +117,8 @@ function startEngine() {
       buf = buf.slice(i + 1)
       const m = /^VOCALIS_READY (\d+)/.exec(line)
       if (m) {
+        engineLog = []
         enginePort = Number(m[1])
-        restarts = 0
         setEngineState('ready')
       } else if (line) {
         pushLog(line)
@@ -125,8 +127,16 @@ function startEngine() {
   }
   proc.stdout?.on('data', onData)
   proc.stderr?.on('data', onData)
-  proc.on('exit', (code) => {
+  proc.on('error', (error) => {
+    if (engineProc !== proc) return
     engineProc = null
+    pushLog(`Не удалось запустить движок: ${error.message}`)
+    setEngineState('crashed')
+  })
+  proc.on('exit', (code) => {
+    if (engineProc !== proc) return
+    engineProc = null
+    if (Date.now() - startedAt > 60000) restarts = 0
     if (quitting) return
     pushLog(`[engine exited with code ${code}]`)
     setEngineState('crashed')
@@ -144,9 +154,10 @@ function setupEngine() {
     setEngineState('needs-setup')
     return
   }
+  engineLog = []
   setEngineState('installing')
   mkdirSync(join(dataRoot, 'runtime'), { recursive: true })
-  const proc = spawn(uvExe, ['sync', '--frozen', '--python', '3.11', '--no-progress'], {
+  const proc = spawn(uvExe, ['sync', '--frozen', '--python', '3.11'], {
     cwd: engineDir,
     env: {
       ...process.env,
@@ -157,9 +168,13 @@ function setupEngine() {
     },
     windowsHide: true,
   })
-  const onData = (chunk: Buffer) => chunk.toString('utf-8').split(/\r?\n/).filter(Boolean).forEach(pushLog)
+  const onData = (chunk: Buffer) => {
+    chunk.toString('utf-8').split(/[\r\n]+/).filter(Boolean).forEach(pushLog)
+    win?.webContents.send('engine:state', engineInfo())
+  }
   proc.stdout?.on('data', onData)
   proc.stderr?.on('data', onData)
+  proc.on('error', (error) => { pushLog(error.message); setEngineState('needs-setup') })
   proc.on('exit', (code) => {
     if (code === 0) startEngine()
     else {

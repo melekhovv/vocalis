@@ -253,7 +253,10 @@ def voice(body: dict):
 
 @app.post("/engine/params")
 def params(body: dict):
-    engine.update_params(body)
+    try:
+        engine.update_params(body)
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from error
     save_settings()
     return engine.status()
 

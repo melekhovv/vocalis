@@ -33,7 +33,7 @@ export default function App() {
     <StoreProvider>
       <TooltipProvider delayDuration={300}>
         <Shell />
-        <Toaster position="bottom-right" />
+        <Toaster position="top-right" />
       </TooltipProvider>
     </StoreProvider>
   )
@@ -75,7 +75,7 @@ function Sidebar({ page, go }: { page: Page; go: (p: Page) => void }) {
   const { voices, settings, status, selectVoice } = useStore()
   const st = status!.engine.state
   const fav = voices.filter((v) => settings?.favorites.includes(v.id) && v.status === 'ready')
-  const recent = (settings?.recent ?? []).map((id) => voices.find((v) => v.id === id)).filter((v) => v && v.status === 'ready').slice(0, 4)
+  const recent = [...new Set(settings?.recent ?? [])].map((id) => voices.find((v) => v.id === id)).filter((v) => v && v.status === 'ready').slice(0, 4)
 
   const VoiceRow = ({ id }: { id: string }) => {
     const v = voices.find((x) => x.id === id)!
@@ -198,7 +198,7 @@ function EngineGate() {
               <div>
                 <h1 className="text-xl font-semibold tracking-tight">Установка аудиодвижка</h1>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Для нейросетевого преобразования нужен локальный движок на Python и PyTorch с поддержкой CUDA (около 4 ГБ). Установка выполняется один раз; голос пользователя никогда не отправляется в интернет.
+                  Для нейросетевого преобразования нужен локальный движок на Python и PyTorch с поддержкой CUDA (около 4 ГБ). Установка выполняется один раз; голос пользователя никогда не отправляется в интернет. Нужны Windows x64, интернет для первой установки и свободное место для движка и моделей. NVIDIA работает через CUDA, AMD/Intel — через CPU. Для Discord и игр отдельно установите VB-CABLE (Настройки → Виртуальный микрофон).
                 </p>
               </div>
               <Button size="lg" onClick={() => bridge.setupEngine()}>Установить движок</Button>
@@ -216,6 +216,11 @@ function EngineGate() {
               {state === 'installing' ? 'Устанавливаем зависимости — это может занять несколько минут…' : busy ? 'Запускаем аудиодвижок…' : ''}
             </div>
           )}
+          {state === 'installing' && <div className="space-y-2 text-left" role="status" aria-live="polite">
+            <Progress className="animate-pulse" aria-label="Установка зависимостей" />
+            <p className="text-xs text-muted-foreground">{info?.log.at(-1) || 'Подготавливаем Python и список пакетов…'}</p>
+            <p className="text-xs text-muted-foreground">Загрузка → распаковка → установка → запуск. Точный общий процент установщик пакетов не предоставляет.</p>
+          </div>}
           {!!info?.log.length && (state !== 'starting') && (
             <pre className="max-h-48 overflow-auto rounded-lg border bg-card p-3 text-left font-mono text-[11px] text-muted-foreground">
               {info.log.slice(-20).join('\n')}

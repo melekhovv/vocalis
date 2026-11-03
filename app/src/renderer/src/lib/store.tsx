@@ -31,6 +31,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [levels, setLevels] = useState<{ input: number[]; output: number[] }>({ input: [], output: [] })
   const wsRef = useRef<WebSocket | null>(null)
+  const overload = useRef(0)
+  const lastWarning = useRef(0)
   const lastError = useRef<string | null>(null)
 
   useEffect(() => {
@@ -69,6 +71,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (msg.voices) setVoices(msg.voices)
         const st = msg.engine.stats
         const running = msg.engine.state === 'running'
+        overload.current = running && st.realtimeFactor > 0.85 ? overload.current + 1 : 0
+        if (overload.current >= 15 && Date.now() - lastWarning.current > 60000) {
+          lastWarning.current = Date.now()
+          toast.warning('Нейросеть не успевает обрабатывать речь', { description: 'Выберите «Скорость» или закройте тяжёлые приложения.', duration: 10000 })
+        }
         setLevels((l) => ({
           input: [...l.input.slice(-(HISTORY - 1)), running ? st.inputDb : -120],
           output: [...l.output.slice(-(HISTORY - 1)), running ? st.outputDb : -120],
@@ -106,25 +113,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     async (id: string) => {
       try {
         await api.selectVoice(id)
-        bridge.rememberVoice(id)
       } catch (e) {
         toast.error('Не удалось выбрать голос', { description: (e as Error).message })
       }
     },
-    [voices],
+    [],
   )
 
   const toggleEngine = useCallback(async () => {
     const st = status?.engine.state
     try {
       if (st === 'running' || st === 'loading') await api.stop()
-      else await api.start()
+      else {
+        if (!status?.baseAssets.ready) {
+          toast.warning('Сначала загрузите базовые нейросети', { description: 'Нажмите «Загрузить» в верхней панели.' })
+          return
+        }
+        const devices = await api.devices()
+        const output = devices.outputs.find(d => d.id === status.engine.devices.output)
+        if (!output?.isVirtualCable) toast.warning('Для Discord и игр нужен виртуальный кабель', {
+          description: 'Установите VB-CABLE и выберите CABLE Input как вывод Vocalis. Инструкция: Настройки → Виртуальный микрофон.', duration: 12000,
+        })
+        await api.start()
+      }
     } catch (e) {
       toast.error('Не удалось запустить преобразование', { description: (e as Error).message })
     }
-  }, [status?.engine.state])
+  }, [status])
 
   const refreshVoices = useCallback(async () => setVoices(await api.voices()), [])
+
+  const remembered = useRef<string | null>(null)
+  useEffect(() => {
+    const id = status?.engine.voiceId
+    if (id && id !== remembered.current) {
+      remembered.current = id
+      bridge.rememberVoice(id).catch(() => { remembered.current = null })
+    }
+  }, [status?.engine.voiceId])
 
   const activeVoice = useMemo(() => voices.find((v) => v.id === status?.engine.voiceId) ?? null, [voices, status?.engine.voiceId])
 

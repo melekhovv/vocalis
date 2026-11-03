@@ -3,7 +3,6 @@ import { RefreshCw, Volume2, Mic, CheckCircle2, CircleAlert, ExternalLink, Loade
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
@@ -35,8 +34,8 @@ export function SettingsPage({ tab, onTab }: { tab: string; onTab: (t: string) =
             <TabsTrigger value="app">Приложение</TabsTrigger>
           </TabsList>
         </div>
-        <ScrollArea className="mt-4 min-h-0 flex-1">
-          <div className="max-w-3xl px-8 pb-10">
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
+          <div className="max-w-3xl px-8 pb-4">
             <TabsContent value="devices"><DevicesTab /></TabsContent>
             <TabsContent value="virtual"><VirtualTab /></TabsContent>
             <TabsContent value="processing"><ProcessingTab /></TabsContent>
@@ -44,7 +43,7 @@ export function SettingsPage({ tab, onTab }: { tab: string; onTab: (t: string) =
             <TabsContent value="hotkeys"><HotkeysTab /></TabsContent>
             <TabsContent value="app"><AppTab /></TabsContent>
           </div>
-        </ScrollArea>
+        </div>
       </Tabs>
     </div>
   )

@@ -10,6 +10,7 @@ Threading model
 """
 
 import ctypes
+import math
 import queue
 import sys
 import threading
@@ -263,6 +264,25 @@ class AudioEngine:
 
     # ------------------------------------------------------------ control
     def update_params(self, changes: dict):
+        # Validate the entire patch before applying any values.
+        limits = {"pitch": (-24, 24), "index_rate": (0, 1), "protect": (0, .5),
+                  "noise_gate_db": (-120, 0), "input_gain": (0, 3), "output_gain": (0, 3),
+                  "monitor_gain": (0, 2), "volume_envelope": (0, 1), "ptt_vk": (1, 254)}
+        for key, value in changes.items():
+            if key not in DEFAULT_PARAMS:
+                raise ValueError(f"Неизвестный параметр: {key}")
+            kind = type(DEFAULT_PARAMS[key])
+            if kind is bool and not isinstance(value, bool):
+                raise ValueError(f"{key}: ожидается true/false")
+            if kind in (int, float):
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                    raise ValueError(f"{key}: ожидается конечное число")
+                if kind is int and int(value) != value:
+                    raise ValueError(f"{key}: ожидается целое число")
+                if key in limits and not limits[key][0] <= value <= limits[key][1]:
+                    raise ValueError(f"{key}: значение вне диапазона")
+            if key == "f0_method" and value not in ("rmvpe", "fcpe", "crepe"):
+                raise ValueError("Неподдерживаемый метод F0")
         if changes.get("clarity_mode") is False:
             voice = next((v for v in self.models.list_voices() if v["id"] == self.voice_id), {})
             profile = voice.get("recommendedParams") or {}

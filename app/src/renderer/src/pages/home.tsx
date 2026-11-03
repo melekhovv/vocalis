@@ -108,7 +108,7 @@ function StateLine() {
         <TriangleAlert className="size-4" /> {e.error?.slice(0, 90)}
       </span>
     )
-  if (e.state === 'loading') return <span className="text-warn">Загрузка модели и прогрев GPU…</span>
+  if (e.state === 'loading') return <span className="text-warn">Загрузка модели и прогрев {e.compute === 'cpu' ? 'CPU' : 'устройства вычислений (автовыбор)'}…</span>
   if (e.state !== 'running') return <span className="text-muted-foreground">Преобразование выключено</span>
   if (e.params.bypass) return <span className="text-warn">Bypass — звучит ваш оригинальный голос</span>
   if (e.params.ptt && !e.stats.pttHeld) return <span className="text-muted-foreground">Push-to-Talk: удерживайте клавишу, чтобы говорить</span>
