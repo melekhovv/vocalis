@@ -24,7 +24,7 @@ from urllib.parse import urlparse
 
 import requests
 
-from .paths import CATALOG_FILE, DATA_DIR, VOICES_DIR
+from .paths import CACHE_DIR, CATALOG_FILE, DATA_DIR, VOICES_DIR  # noqa: F401
 
 from .downloads import ALLOWED_HOSTS, open_download
 CHUNK = 1 << 20

@@ -93,13 +93,16 @@ jobs:
           version: "latest"
 
       - name: Sync CPU Python environment
-        run: uv sync --project engine/profiles/cpu
+        working-directory: engine
+        run: uv sync --project profiles/cpu
 
       - name: Engine typecheck (pyright)
-        run: uv run --project engine/profiles/cpu --with pyright pyright -p engine
+        working-directory: engine
+        run: uv run --project profiles/cpu --with pyright pyright
 
       - name: Run Engine unit tests (77 tests)
-        run: uv run --project engine/profiles/cpu python -B -m unittest discover -s engine/tests -p "test_*.py" -v
+        working-directory: engine
+        run: uv run --project profiles/cpu python -B -m unittest discover -s tests -p "test_*.py" -v
 
   build:
     name: Package Windows Installer
