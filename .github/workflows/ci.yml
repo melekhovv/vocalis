@@ -116,30 +116,18 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
 
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          version: "latest"
-
       - name: Install shell dependencies
         working-directory: app
         run: npm ci
 
-      - name: Prepare uv binary for extraResources
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force app\build\bin | Out-Null
-          $uvPath = (Get-Command uv).Source
-          Copy-Item $uvPath app\build\bin\uv.exe -Force
-
       - name: Build Windows Installer (NSIS)
-        working-directory: app
+        shell: powershell
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-        run: npm run dist
+        run: .\scripts\build.ps1
 
       - name: Inspect code signature status
         shell: powershell
