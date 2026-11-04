@@ -112,18 +112,18 @@ function Sidebar({ page, go }: { page: Page; go: (p: Page) => void }) {
           {recent.length ? recent.map((v) => <VoiceRow key={v!.id} id={v!.id} />) : <p className="px-2 py-1 text-xs text-muted-foreground">Пока пусто</p>}
         </SideSection>
       </ScrollArea>
-      <div className="border-t p-3">
-        <div className="flex items-center gap-2 rounded-md bg-card px-2.5 py-2 text-xs">
+      <div className="shrink-0 border-t p-3">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 rounded-md bg-card px-2.5 py-2 text-xs">
           <span
             className={cn(
-              'size-2 rounded-full',
+              'size-2 shrink-0 rounded-full',
               st === 'running' ? 'bg-live shadow-[0_0_8px] shadow-live' : st === 'loading' ? 'animate-pulse bg-warn' : st === 'error' ? 'bg-destructive' : 'bg-muted-foreground/40',
             )}
           />
           <span className="text-muted-foreground">
             {st === 'running' ? 'Преобразование активно' : st === 'loading' ? 'Загрузка модели…' : st === 'error' ? 'Ошибка' : 'Остановлено'}
           </span>
-          {st === 'running' && <span className="tabular ml-auto font-mono text-muted-foreground">{Math.round(status!.engine.stats.totalLatencyMs)} мс</span>}
+          {st === 'running' && <span className="tabular col-start-2 font-mono text-muted-foreground">{Math.round(status!.engine.stats.totalLatencyMs)} мс</span>}
         </div>
       </div>
     </aside>

@@ -46,32 +46,23 @@ export function LibraryPage({ go }: { go: (p: Page) => void }) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="space-y-4 px-8 pb-4">
-        <div className="flex items-end justify-between gap-4">
-          <div>
+      <header className="shrink-0 space-y-4 px-6 pb-4 xl:px-8">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0 flex-1 basis-80">
             <h1 className="text-2xl font-semibold tracking-tight">Библиотека голосов</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {voices.filter((v) => v.status === 'ready').length} из {voices.length} моделей загружено. Только русская озвучка. Нажмите ▶ на карточке, чтобы услышать пример.
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => go('models')}>Менеджер моделей</Button>
+          <Button variant="outline" size="sm" className="shrink-0" onClick={() => go('models')}>Менеджер моделей</Button>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative w-72">
+          <div className="relative min-w-0 flex-1 basis-72">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск по персонажу или франшизе" className="pl-8" />
           </div>
-          <Tabs className="max-w-full overflow-x-auto" value={cat} onValueChange={(v) => setCat(v as typeof cat)}>
-            <TabsList>
-              <TabsTrigger value="all">Все</TabsTrigger>
-              <TabsTrigger value="fav"><Star className="size-3.5" /> Избранное</TabsTrigger>
-              {categories.map((c) => (
-                <TabsTrigger key={c} value={c}>{CATEGORY_LABELS[c]}</TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
           <Select value={sort} onValueChange={(v) => setSort(v as Sort)}>
-            <SelectTrigger className="ml-auto w-44" size="sm"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="ml-auto w-44 shrink-0" size="sm"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="name">По имени</SelectItem>
               <SelectItem value="franchise">По франшизе</SelectItem>
@@ -79,10 +70,19 @@ export function LibraryPage({ go }: { go: (p: Page) => void }) {
               <SelectItem value="size">По размеру</SelectItem>
             </SelectContent>
           </Select>
+          <Tabs className="order-last min-w-0 basis-full" value={cat} onValueChange={(v) => setCat(v as typeof cat)}>
+            <TabsList className="max-w-full flex-wrap justify-start gap-1 group-data-[orientation=horizontal]/tabs:h-auto">
+              <TabsTrigger className="h-8 flex-none" value="all">Все</TabsTrigger>
+              <TabsTrigger className="h-8 flex-none" value="fav"><Star className="size-3.5" /> Избранное</TabsTrigger>
+              {categories.map((c) => (
+                <TabsTrigger className="h-8 flex-none" key={c} value={c}>{CATEGORY_LABELS[c]}</TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         </div>
       </header>
       <ScrollArea className="min-h-0 flex-1">
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4 px-8 pb-8">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4 px-6 pb-8 xl:px-8">
           {list.map((v) => (
             <VoiceCard key={v.id} voice={v} />
           ))}

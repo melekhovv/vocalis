@@ -19,22 +19,22 @@ import { PRESET_LABELS } from '@/pages/home'
 
 export function SettingsPage({ tab, onTab }: { tab: string; onTab: (t: string) => void }) {
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-w-0 flex-col">
       <header className="px-8 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight">Настройки</h1>
       </header>
-      <Tabs value={tab} onValueChange={onTab} className="flex min-h-0 flex-1 flex-col">
-        <div className="px-8">
-          <TabsList>
-            <TabsTrigger value="devices">Аудиоустройства</TabsTrigger>
-            <TabsTrigger value="virtual">Виртуальный микрофон</TabsTrigger>
-            <TabsTrigger value="processing">Обработка</TabsTrigger>
-            <TabsTrigger value="performance">Производительность</TabsTrigger>
-            <TabsTrigger value="hotkeys">Горячие клавиши</TabsTrigger>
-            <TabsTrigger value="app">Приложение</TabsTrigger>
+      <Tabs value={tab} onValueChange={onTab} className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="min-w-0 shrink-0 px-8 py-1">
+          <TabsList className="h-auto w-full flex-wrap justify-start gap-1 group-data-[orientation=horizontal]/tabs:h-auto">
+            <TabsTrigger className="h-8 flex-none" value="devices">Аудиоустройства</TabsTrigger>
+            <TabsTrigger className="h-8 flex-none" value="virtual">Виртуальный микрофон</TabsTrigger>
+            <TabsTrigger className="h-8 flex-none" value="processing">Обработка</TabsTrigger>
+            <TabsTrigger className="h-8 flex-none" value="performance">Производительность</TabsTrigger>
+            <TabsTrigger className="h-8 flex-none" value="hotkeys">Горячие клавиши</TabsTrigger>
+            <TabsTrigger className="h-8 flex-none" value="app">Приложение</TabsTrigger>
           </TabsList>
         </div>
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
+        <div className="mt-4 min-h-0 min-w-0 flex-1 overflow-y-auto">
           <div className="w-full min-w-0 px-8 pb-4">
             <TabsContent value="devices"><DevicesTab /></TabsContent>
             <TabsContent value="virtual"><VirtualTab /></TabsContent>
@@ -66,7 +66,7 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
     <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
       <div className="min-w-0">
         <div className="text-sm">{label}</div>
-        {hint && <div className="mt-0.5 text-xs text-muted-foreground">{hint}</div>}
+        {hint && <div className="mt-0.5 text-xs text-muted-foreground [overflow-wrap:anywhere]">{hint}</div>}
       </div>
       <div className="min-w-0 max-w-full">{children}</div>
     </div>
@@ -323,9 +323,9 @@ function PerformanceTab() {
   return (
     <div className="space-y-5">
       <Section title="Режим качества / производительности" description="Размер блока определяет основную часть задержки. Нейросеть должна успевать обработать блок быстрее, чем он длится.">
-        <ToggleGroup type="single" variant="outline" value={e.preset} onValueChange={(v) => v && api.preset(v as Preset).catch((err) => toast.error('Не удалось сменить режим', { description: err.message }))} className="w-full">
+        <ToggleGroup type="single" variant="outline" value={e.preset} onValueChange={(v) => v && api.preset(v as Preset).catch((err) => toast.error('Не удалось сменить режим', { description: err.message }))} className="w-full items-stretch">
           {(Object.keys(PRESET_LABELS) as Preset[]).map((k) => (
-            <ToggleGroupItem key={k} value={k} className="h-auto flex-1 flex-col items-start gap-0.5 px-3 py-2.5 text-left">
+            <ToggleGroupItem key={k} value={k} className="h-auto flex-1 flex-col items-start justify-start gap-0.5 px-3 py-2.5 text-left">
               <span className="text-sm font-medium">{PRESET_LABELS[k]}</span>
               <span className="text-[11px] font-normal whitespace-normal text-muted-foreground">{desc[k]}</span>
             </ToggleGroupItem>

@@ -26,66 +26,68 @@ export function HomePage({ go }: { go: (p: Page, tab?: string) => void }) {
   const readyCount = voices.filter((v) => v.status === 'ready').length
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full min-h-0">
       {/* ---------------------------------------------------- stage */}
-      <section className="relative flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden px-10 pb-10">
-        <div
-          className="pointer-events-none absolute top-1/3 left-1/2 size-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-40 blur-3xl transition-colors duration-700"
-          style={{ background: `radial-gradient(circle, ${running ? accent : '#ffffff'}${running ? '40' : '08'}, transparent 65%)` }}
-        />
-        {activeVoice ? (
-          <>
-            <VoiceAvatar voice={activeVoice} ring={running} className="size-44 rounded-2xl transition-shadow duration-500" />
-            <div className="mt-6 text-center">
-              <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{activeVoice.franchise}</div>
-              <h1 className="mt-1 text-3xl font-semibold tracking-tight">{activeVoice.nameRu}</h1>
-              <div className="mt-2 flex items-center justify-center gap-1.5">
-                <Badge variant="secondary" className="font-normal">{CATEGORY_LABELS[activeVoice.category]}</Badge>
-                <Badge variant="secondary" className="font-normal">RVC {activeVoice.checkpoint?.version ?? 'v2'}</Badge>
-                {activeVoice.checkpoint && <Badge variant="secondary" className="font-normal">{activeVoice.checkpoint.sampleRate / 1000} кГц</Badge>}
+      <section className="relative min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <div className="relative flex min-h-full flex-col items-center justify-center px-6 py-8 xl:px-10">
+          <div
+            className="pointer-events-none absolute top-1/3 left-1/2 size-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-40 blur-3xl transition-colors duration-700"
+            style={{ background: `radial-gradient(circle, ${running ? accent : '#ffffff'}${running ? '40' : '08'}, transparent 65%)` }}
+          />
+          {activeVoice ? (
+            <>
+              <VoiceAvatar voice={activeVoice} ring={running} className="size-44 rounded-2xl transition-shadow duration-500" />
+              <div className="mt-6 w-full min-w-0 text-center">
+                <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{activeVoice.franchise}</div>
+                <h1 className="mt-1 text-3xl font-semibold tracking-tight break-words">{activeVoice.nameRu}</h1>
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+                  <Badge variant="secondary" className="font-normal">{CATEGORY_LABELS[activeVoice.category]}</Badge>
+                  <Badge variant="secondary" className="font-normal">RVC {activeVoice.checkpoint?.version ?? 'v2'}</Badge>
+                  {activeVoice.checkpoint && <Badge variant="secondary" className="font-normal">{activeVoice.checkpoint.sampleRate / 1000} кГц</Badge>}
+                </div>
               </div>
+            </>
+          ) : (
+            <div className="text-center">
+              <div className="mx-auto flex size-44 items-center justify-center rounded-2xl border border-dashed text-muted-foreground">
+                <Library className="size-10" />
+              </div>
+              <h1 className="mt-6 text-2xl font-semibold tracking-tight">Голос не выбран</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {readyCount ? 'Выберите голос в библиотеке или в списке избранного.' : 'Загрузите хотя бы одну модель в библиотеке голосов.'}
+              </p>
+              <Button variant="secondary" className="mt-4" onClick={() => go('library')}>Открыть библиотеку</Button>
             </div>
-          </>
-        ) : (
-          <div className="text-center">
-            <div className="mx-auto flex size-44 items-center justify-center rounded-2xl border border-dashed text-muted-foreground">
-              <Library className="size-10" />
-            </div>
-            <h1 className="mt-6 text-2xl font-semibold tracking-tight">Голос не выбран</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {readyCount ? 'Выберите голос в библиотеке или в списке избранного.' : 'Загрузите хотя бы одну модель в библиотеке голосов.'}
-            </p>
-            <Button variant="secondary" className="mt-4" onClick={() => go('library')}>Открыть библиотеку</Button>
-          </div>
-        )}
-
-        <button
-          onClick={toggleEngine}
-          disabled={!activeVoice}
-          className={cn(
-            'group relative mt-8 flex size-20 items-center justify-center rounded-full border transition-all duration-300 disabled:opacity-40',
-            running ? 'border-transparent text-background' : 'border-border bg-card text-foreground hover:border-foreground/30',
           )}
-          style={running ? { background: accent, boxShadow: `0 0 0 6px ${accent}22, 0 0 40px ${accent}66` } : undefined}
-          aria-label={running ? 'Выключить преобразование' : 'Включить преобразование'}
-        >
-          {loading ? <Loader2 className="size-7 animate-spin" /> : <Power className="size-7" strokeWidth={2.25} />}
-        </button>
-        <div className="mt-3 h-5 text-sm">
-          <StateLine />
-        </div>
 
-        <div className="mt-6 w-full max-w-xl">
-          <Waveform history={running ? levels.output : levels.input} accent={accent} active={running && !e.params.bypass} />
-          <div className="mt-4 grid grid-cols-2 gap-6">
-            <LevelMeter label="Вход (микрофон)" db={running ? e.stats.inputDb : -120} gateDb={e.params.noise_gate_db} />
-            <LevelMeter label="Выход (обработанный голос)" db={running ? e.stats.outputDb : -120} />
+          <button
+            onClick={toggleEngine}
+            disabled={!activeVoice}
+            className={cn(
+              'group relative mt-8 flex size-20 shrink-0 items-center justify-center rounded-full border transition-all duration-300 disabled:opacity-40',
+              running ? 'border-transparent text-background' : 'border-border bg-card text-foreground hover:border-foreground/30',
+            )}
+            style={running ? { background: accent, boxShadow: `0 0 0 6px ${accent}22, 0 0 40px ${accent}66` } : undefined}
+            aria-label={running ? 'Выключить преобразование' : 'Включить преобразование'}
+          >
+            {loading ? <Loader2 className="size-7 animate-spin" /> : <Power className="size-7" strokeWidth={2.25} />}
+          </button>
+          <div className="mt-3 min-h-5 w-full text-center text-sm">
+            <StateLine />
+          </div>
+
+          <div className="mt-6 w-full max-w-xl">
+            <Waveform history={running ? levels.output : levels.input} accent={accent} active={running && !e.params.bypass} />
+            <div className="mt-4 grid min-w-0 grid-cols-2 gap-4 xl:gap-6">
+              <LevelMeter label="Вход (микрофон)" db={running ? e.stats.inputDb : -120} gateDb={e.params.noise_gate_db} />
+              <LevelMeter label="Выход (обработанный голос)" db={running ? e.stats.outputDb : -120} />
+            </div>
           </div>
         </div>
       </section>
 
       {/* ---------------------------------------------------- side panel */}
-      <aside className="w-80 shrink-0 border-l bg-card/40">
+      <aside className="w-72 shrink-0 border-l bg-card/40 xl:w-80">
         <ScrollArea className="h-full">
           <div className="space-y-6 p-5">
             <QuickSettings />
@@ -105,8 +107,8 @@ function StateLine() {
   const e = status!.engine
   if (e.state === 'error')
     return (
-      <span className="flex items-center gap-1.5 text-destructive">
-        <TriangleAlert className="size-4" /> {e.error?.slice(0, 90)}
+      <span className="flex items-start justify-center gap-1.5 break-words text-destructive">
+        <TriangleAlert className="mt-0.5 size-4 shrink-0" /> <span className="min-w-0">{e.error?.slice(0, 90)}</span>
       </span>
     )
   if (e.state === 'loading') return <span className="text-warn">Загрузка модели и прогрев {e.compute === 'cpu' ? 'CPU' : 'устройства вычислений (автовыбор)'}…</span>

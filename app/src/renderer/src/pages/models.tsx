@@ -33,13 +33,13 @@ export function ModelsPage() {
   const baseJob = base.job && !['done', 'error', 'cancelled'].includes(base.job.stage) ? base.job : null
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex items-end justify-between gap-4 px-8 pb-5">
+    <div className="@container flex h-full min-w-0 flex-col">
+      <header className="flex flex-wrap items-end justify-between gap-4 px-8 pb-5">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Менеджер моделей</h1>
           <p className="mt-1 text-sm text-muted-foreground">Загрузка, проверка целостности, удаление и импорт моделей RVC.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => setSourcesOpen(true)}><BookOpen /> Источники</Button>
           {sys && (
             <Button variant="outline" size="sm" onClick={() => bridge.openPath(sys.storage.dataDir)}>
@@ -54,7 +54,7 @@ export function ModelsPage() {
       <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-6 px-8 pb-8">
           <section className="rounded-xl border bg-card">
-            <div className="flex items-center justify-between border-b px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
               <div>
                 <div className="text-sm font-medium">Базовые нейросети</div>
                 <div className="text-xs text-muted-foreground">Извлечение признаков речи и высоты тона — общие для всех голосов.</div>
@@ -71,17 +71,17 @@ export function ModelsPage() {
             <div className="divide-y">
               {base.items.map((i) => (
                 <div key={i.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                  <FileAudio className="size-4 text-muted-foreground" />
-                  <span className="flex-1">{i.title}</span>
+                  <FileAudio className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{i.title}</span>
                   <span className="tabular text-xs text-muted-foreground">{formatBytes(i.size)}</span>
-                  <span className={cn('w-24 text-right text-xs', i.present ? 'text-live' : 'text-muted-foreground')}>{i.present ? 'Есть' : 'Не загружено'}</span>
+                  <span className={cn('w-24 shrink-0 text-right text-xs', i.present ? 'text-live' : 'text-muted-foreground')}>{i.present ? 'Есть' : 'Не загружено'}</span>
                 </div>
               ))}
             </div>
           </section>
 
           <section className="rounded-xl border bg-card">
-            <div className="flex items-center justify-between border-b px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
               <div className="text-sm font-medium">Голосовые модели</div>
               {sys && (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -99,7 +99,7 @@ export function ModelsPage() {
       </ScrollArea>
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto [overflow-wrap:anywhere]">
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить модель «{toDelete?.nameRu}»?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -146,10 +146,10 @@ function ModelRow({ v, onDelete }: { v: Voice; onDelete: () => void }) {
   }
   const job = v.status === 'downloading' ? v.job : null
   return (
-    <div className="flex items-center gap-4 px-4 py-3">
+    <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 py-3 @min-[52rem]:grid-cols-[auto_minmax(0,1fr)_7rem_5rem_7rem]">
       <VoiceAvatar voice={v} className="size-10 rounded-md" />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 text-sm font-medium">
+        <div className="flex flex-wrap items-center gap-2 text-sm font-medium [overflow-wrap:anywhere]">
           {v.nameRu}
           {v.custom && <Badge variant="secondary" className="h-4 px-1 text-[10px] font-normal">Импорт</Badge>}
         </div>
@@ -158,14 +158,14 @@ function ModelRow({ v, onDelete }: { v: Voice; onDelete: () => void }) {
           {v.checkpoint && ` · ${v.checkpoint.version}, ${v.checkpoint.sampleRate / 1000} кГц, ${v.checkpoint.vocoder}`}
         </div>
         {job && (
-          <div className="mt-1.5 flex items-center gap-2">
-            <Progress value={job.progress * 100} className="h-1 w-48" />
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <Progress value={job.progress * 100} className="h-1 w-48 max-w-full" />
             <span className="text-[11px] text-muted-foreground">{stageLabel(job.stage)}</span>
           </div>
         )}
-        {v.lastError && !job && <div className="mt-1 text-xs text-destructive">{v.lastError}</div>}
+        {v.lastError && !job && <div className="mt-1 text-xs text-destructive [overflow-wrap:anywhere]">{v.lastError}</div>}
       </div>
-      <div className="w-28 text-right text-xs">
+      <div className="col-start-2 row-start-2 text-xs @min-[52rem]:col-start-3 @min-[52rem]:row-start-1 @min-[52rem]:text-right">
         {v.status === 'ready' ? (
           <span className="text-live">Совместима</span>
         ) : v.status === 'corrupted' ? (
@@ -176,8 +176,8 @@ function ModelRow({ v, onDelete }: { v: Voice; onDelete: () => void }) {
           <span className="text-muted-foreground">Не загружена</span>
         )}
       </div>
-      <div className="tabular w-20 text-right text-xs text-muted-foreground">{formatBytes(v.status === 'ready' ? v.diskSize : v.downloadSize)}</div>
-      <div className="flex w-28 justify-end gap-1">
+      <div className="tabular col-start-3 row-start-2 text-right text-xs text-muted-foreground @min-[52rem]:col-start-4 @min-[52rem]:row-start-1">{formatBytes(v.status === 'ready' ? v.diskSize : v.downloadSize)}</div>
+      <div className="col-start-3 row-start-1 flex justify-end gap-1 @min-[52rem]:col-start-5">
         {v.status === 'ready' || v.status === 'corrupted' ? (
           <>
             <Button variant="ghost" size="icon" className="size-8" onClick={verify} disabled={verifying} title="Проверить целостность">
@@ -243,7 +243,7 @@ function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="min-w-0 grid-cols-[minmax(0,1fr)] sm:max-w-lg">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] min-w-0 grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Импорт модели RVC</DialogTitle>
           <DialogDescription>
@@ -314,22 +314,22 @@ function SourcesDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   }, [open, attempt])
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] min-w-0 grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Источники голосов</DialogTitle>
           <DialogDescription>Авторы моделей, каталоги и рекомендации по разборчивости речи. Ссылки открываются в браузере.</DialogDescription>
         </DialogHeader>
         {!data && !error && <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground" role="status"><Loader2 className="size-4 animate-spin" /> Загружаем источники…</p>}
-        {error && <div className="space-y-3 py-4" role="alert"><p className="text-sm text-destructive">{error}</p><Button variant="outline" onClick={() => setAttempt((v) => v + 1)}>Повторить</Button></div>}
+        {error && <div className="space-y-3 py-4" role="alert"><p className="text-sm text-destructive [overflow-wrap:anywhere]">{error}</p><Button variant="outline" onClick={() => setAttempt((v) => v + 1)}>Повторить</Button></div>}
         {data && <>
           <p className="text-xs text-muted-foreground">Проверено: {new Date(data.checkedAt).toLocaleDateString('ru-RU')}. {data.summary}</p>
           <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
             {data.sources.map((s) => <div key={s.id} className="rounded-lg border px-4 py-3">
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div><p className="text-sm font-medium">{s.name}</p><p className="mt-0.5 text-xs text-muted-foreground">{s.kind}</p></div>
                 <Button size="sm" variant="outline" onClick={() => bridge.openExternal(s.url)} aria-label={`Открыть ${s.name} в браузере`}><ExternalLink /> Открыть</Button>
               </div>
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{s.notes}</p>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{s.notes}</p>
               {s.httpStatus !== 200 && <p className="mt-1 text-xs text-warn">Доступность при последней проверке не подтверждена</p>}
             </div>)}
           </div>

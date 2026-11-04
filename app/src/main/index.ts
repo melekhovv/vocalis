@@ -396,8 +396,17 @@ function registerIpc() {
 // VOCALIS_SHOTS=<dir> walks every page once the UI is connected and saves PNGs.
 async function captureShots(dir: string) {
   mkdirSync(dir, { recursive: true })
+  const dimensions = process.env.VOCALIS_SHOTS_SIZE?.match(/^(\d+)x(\d+)$/)
+  if (dimensions) win!.setSize(Number(dimensions[1]), Number(dimensions[2]))
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
   const js = (code: string) => win!.webContents.executeJavaScript(code)
+  const layout = async (name: string) => {
+    const report = await js(`({width: innerWidth, height: innerHeight, overflow: [...document.querySelectorAll('main *, [role=dialog] *')].filter(e => {
+      const r=e.getBoundingClientRect(); const c=getComputedStyle(e);
+      return r.width && r.height && c.visibility !== 'hidden' && (r.right > innerWidth+1 || r.left < -1);
+    }).map(e => ({tag:e.tagName, slot:e.getAttribute('data-slot'), text:e.textContent?.slice(0,100)}))})`)
+    writeFileSync(join(dir, name + '-layout.json'), JSON.stringify(report, null, 2))
+  }
   const snapshot = async () => {
     // A hidden window may otherwise return its previous compositor frame.
     await win!.webContents.capturePage(undefined, { stayHidden: true, stayAwake: true })
@@ -409,6 +418,7 @@ async function captureShots(dir: string) {
     await sleep(500)
   }
   await sleep(2500)
+  await win!.webContents.insertCSS('* { animation: none !important; transition: none !important; }')
   await js(`document.querySelector('[role=alertdialog] button')?.click()`)
   const pages = ['Главная', 'Библиотека голосов', 'Менеджер моделей', 'Настройки', 'Система']
   for (const [i, label] of pages.entries()) {
@@ -416,6 +426,7 @@ async function captureShots(dir: string) {
     await sleep(1800)
     const img = await snapshot()
     writeFileSync(join(dir, `${i + 1}-${label}.png`), img.toPNG())
+    await layout(String(i + 1))
     if (label === 'Менеджер моделей') {
       for (let check = 0; check < 30; check++) {
         if (await js(`document.querySelector('main h1')?.textContent === 'Менеджер моделей'`)) break
@@ -433,12 +444,25 @@ async function captureShots(dir: string) {
       await js(`document.querySelector('[data-slot=dialog-close]')?.click()`)
       await sleep(300)
     }
+    if (label === 'Менеджер моделей') {
+      // Exercise the real import picker UI without opening a native dialog or reading a model.
+      ipcMain.removeHandler('dialog:open')
+      ipcMain.handle('dialog:open', () => 'C:\\Models\\' + 'Very-long-model-directory-'.repeat(16) + '\\voice.pth')
+      await js(`[...document.querySelectorAll('button')].find(b => b.textContent.includes('Импорт'))?.click()`)
+      await sleep(400)
+      await js(`[...document.querySelectorAll('[role=dialog] button')].find(b => b.textContent.includes('Обзор'))?.click()`)
+      await sleep(400)
+      writeFileSync(join(dir, '3-import.png'), (await snapshot()).toPNG())
+      await layout('3-import')
+      await js(`document.querySelector('[data-slot=dialog-close]')?.click()`)
+    }
     if (label !== 'Настройки') continue
-    for (const tab of ['Виртуальный микрофон', 'Обработка', 'Производительность', 'Горячие клавиши']) {
-      await js(`[...document.querySelectorAll('[role=tab]')].find(b => b.textContent.includes(${JSON.stringify(tab)}))?.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}))`)
+    for (const tab of ['Виртуальный микрофон', 'Обработка', 'Производительность', 'Горячие клавиши', 'Приложение']) {
+      await js(`[...document.querySelectorAll('[role=tab]')].find(b => b.textContent.includes(${JSON.stringify(tab)}))?.dispatchEvent(new MouseEvent('mousedown', {bubbles: true, button: 0, ctrlKey: false}))`)
       await sleep(1200)
       writeFileSync(join(dir, `4-settings-${tab}-dom.json`), JSON.stringify(await js(`({tabs:[...document.querySelectorAll('[role=tab]')].map(t=>({label:t.textContent,selected:t.getAttribute('aria-selected')})),text:document.querySelector('[role=tabpanel]')?.textContent})`), null, 2))
       writeFileSync(join(dir, `4-settings-${tab}.png`), (await snapshot()).toPNG())
+      await layout('4-' + tab)
     }
   }
   quit()

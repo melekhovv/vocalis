@@ -19,10 +19,10 @@ export function SystemPage() {
   const hw = sys?.hardware
 
   return (
-    <ScrollArea className="h-full">
-      <div className="max-w-4xl space-y-5 px-8 pb-10">
+    <ScrollArea className="h-full min-w-0">
+      <div className="@container w-full min-w-0 space-y-5 px-8 pb-10">
         <h1 className="text-2xl font-semibold tracking-tight">Система</h1>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid min-w-0 grid-cols-1 gap-4 @min-[42rem]:grid-cols-3">
           <Stat icon={Cpu} label="Процессор" value={`${s.cpu.toFixed(0)}%`} sub={hw ? `${hw.cores} ядер / ${hw.threads} потоков` : ''} progress={s.cpu} />
           <Stat
             icon={MonitorSpeaker}
@@ -36,7 +36,7 @@ export function SystemPage() {
 
         <section className="rounded-xl border bg-card">
           <div className="flex items-center gap-2 border-b px-5 py-3.5 text-sm font-medium"><Activity className="size-4 text-muted-foreground" /> Аудиоконвейер</div>
-          <dl className="grid grid-cols-2 gap-x-10 gap-y-2.5 p-5 text-sm">
+          <dl className="grid min-w-0 grid-cols-1 @min-[50rem]:grid-cols-2 gap-x-10 gap-y-2.5 p-5 text-sm">
             <KV k="Состояние" v={{ stopped: 'Остановлен', loading: 'Загрузка модели', running: 'Работает', error: 'Ошибка' }[status!.engine.state]} />
             <KV k="Устройство инференса" v={st.device ?? '—'} />
             <KV k="Размер блока" v={running ? `${st.blockMs.toFixed(0)} мс` : '—'} />
@@ -53,7 +53,7 @@ export function SystemPage() {
 
         <section className="rounded-xl border bg-card">
           <div className="border-b px-5 py-3.5 text-sm font-medium">Окружение</div>
-          <dl className="grid grid-cols-2 gap-x-10 gap-y-2.5 p-5 text-sm">
+          <dl className="grid min-w-0 grid-cols-1 @min-[50rem]:grid-cols-2 gap-x-10 gap-y-2.5 p-5 text-sm">
             <KV k="CPU" v={hw?.cpu ?? '—'} />
             <KV k="GPU" v={hw?.gpu ?? 'нет CUDA-устройства'} />
             <KV k="VRAM" v={hw?.vramGb ? `${hw.vramGb} ГБ` : '—'} />
@@ -63,11 +63,11 @@ export function SystemPage() {
         </section>
 
         <section className="rounded-xl border bg-card">
-          <div className="flex items-center justify-between border-b px-5 py-3 text-sm font-medium">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3 text-sm font-medium">
             Журнал движка
             <Button variant="ghost" size="sm" onClick={() => bridge.restartEngine()}>Перезапустить движок</Button>
           </div>
-          <pre className="max-h-64 overflow-auto p-4 font-mono text-[11px] leading-relaxed text-muted-foreground select-text">{info?.log.join('\n') || 'Пусто'}</pre>
+          <pre className="max-h-64 min-w-0 max-w-full overflow-auto p-4 font-mono text-[11px] leading-relaxed text-muted-foreground select-text">{info?.log.join('\n') || 'Пусто'}</pre>
         </section>
       </div>
     </ScrollArea>
@@ -76,7 +76,7 @@ export function SystemPage() {
 
 function Stat({ icon: Icon, label, value, sub, progress }: { icon: typeof Cpu; label: string; value: string; sub: string; progress?: number }) {
   return (
-    <div className="rounded-xl border bg-card p-4">
+    <div className="min-w-0 rounded-xl border bg-card p-4">
       <div className="flex items-center gap-2 text-xs text-muted-foreground"><Icon className="size-4" /> {label}</div>
       <div className="tabular mt-2 text-2xl font-semibold tracking-tight">{value}</div>
       <div className="mt-1 truncate text-xs text-muted-foreground" title={sub}>{sub}</div>
@@ -87,9 +87,9 @@ function Stat({ icon: Icon, label, value, sub, progress }: { icon: typeof Cpu; l
 
 function KV({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex justify-between gap-4">
+    <div className="flex min-w-0 flex-wrap justify-between gap-x-4 gap-y-1">
       <dt className="text-muted-foreground">{k}</dt>
-      <dd className="tabular truncate text-right font-mono text-xs" title={v}>{v}</dd>
+      <dd className="tabular min-w-0 break-words text-right font-mono text-xs [overflow-wrap:anywhere]" title={v}>{v}</dd>
     </div>
   )
 }
