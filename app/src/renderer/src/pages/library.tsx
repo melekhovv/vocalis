@@ -42,7 +42,7 @@ export function LibraryPage({ go }: { go: (p: Page) => void }) {
     })
   }, [voices, q, cat, sort, settings?.favorites])
 
-  const categories = (Object.keys(CATEGORY_LABELS) as Category[]).filter((c) => voices.some((v) => v.category === c))
+  const categories = (Object.keys(CATEGORY_LABELS) as Category[]).filter((c) => c === 'people' || voices.some((v) => v.category === c))
 
   return (
     <div className="flex h-full flex-col">
@@ -56,12 +56,12 @@ export function LibraryPage({ go }: { go: (p: Page) => void }) {
           </div>
           <Button variant="outline" size="sm" onClick={() => go('models')}>Менеджер моделей</Button>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="relative w-72">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск по персонажу или франшизе" className="pl-8" />
           </div>
-          <Tabs value={cat} onValueChange={(v) => setCat(v as typeof cat)}>
+          <Tabs className="max-w-full overflow-x-auto" value={cat} onValueChange={(v) => setCat(v as typeof cat)}>
             <TabsList>
               <TabsTrigger value="all">Все</TabsTrigger>
               <TabsTrigger value="fav"><Star className="size-3.5" /> Избранное</TabsTrigger>

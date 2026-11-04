@@ -1,10 +1,11 @@
-export type Category = 'cartoon' | 'anime' | 'film_tv' | 'game' | 'other'
+export type Category = 'cartoon' | 'anime' | 'film_tv' | 'game' | 'people' | 'other'
 
 export const CATEGORY_LABELS: Record<Category, string> = {
   cartoon: 'Мультфильмы',
   anime: 'Аниме',
   film_tv: 'Фильмы и сериалы',
   game: 'Видеоигры',
+  people: 'Медийные люди',
   other: 'Другие',
 }
 

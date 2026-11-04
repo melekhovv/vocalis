@@ -73,28 +73,10 @@ function Shell() {
 }
 
 function Sidebar({ page, go }: { page: Page; go: (p: Page) => void }) {
-  const { voices, settings, status, selectVoice } = useStore()
+  const { voices, settings, status } = useStore()
   const st = status!.engine.state
   const fav = voices.filter((v) => settings?.favorites.includes(v.id) && v.status === 'ready')
   const recent = [...new Set(settings?.recent ?? [])].map((id) => voices.find((v) => v.id === id)).filter((v) => v && v.status === 'ready').slice(0, 4)
-
-  const VoiceRow = ({ id }: { id: string }) => {
-    const v = voices.find((x) => x.id === id)!
-    const active = status!.engine.voiceId === id
-    return (
-      <button
-        onClick={() => selectVoice(id)}
-        className={cn(
-          'no-drag flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent',
-          active && 'bg-accent',
-        )}
-      >
-        <VoiceAvatar voice={v} className="size-6 rounded" />
-        <span className="truncate">{v.nameRu}</span>
-        {active && <span className="ml-auto size-1.5 rounded-full bg-primary" />}
-      </button>
-    )
-  }
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r bg-sidebar">
@@ -145,6 +127,28 @@ function Sidebar({ page, go }: { page: Page; go: (p: Page) => void }) {
         </div>
       </div>
     </aside>
+  )
+}
+
+// Defined at module scope so status updates preserve row DOM, focus and avatars.
+function VoiceRow({ id }: { id: string }) {
+  const { voices, status, selectVoice } = useStore()
+  const v = voices.find((x) => x.id === id)!
+  const active = status!.engine.voiceId === id
+  return (
+    <button
+      onClick={() => selectVoice(id)}
+      aria-pressed={active}
+      title={v.nameRu}
+      className={cn(
+        'no-drag flex min-w-0 w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent',
+        active && 'bg-accent',
+      )}
+    >
+      <VoiceAvatar voice={v} className="size-6 rounded" />
+      <span className="min-w-0 flex-1 truncate">{v.nameRu}</span>
+      {active && <span className="ml-auto size-1.5 shrink-0 rounded-full bg-primary" />}
+    </button>
   )
 }
 

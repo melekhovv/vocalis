@@ -35,7 +35,7 @@ export function SettingsPage({ tab, onTab }: { tab: string; onTab: (t: string) =
           </TabsList>
         </div>
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
-          <div className="max-w-3xl px-8 pb-4">
+          <div className="w-full min-w-0 px-8 pb-4">
             <TabsContent value="devices"><DevicesTab /></TabsContent>
             <TabsContent value="virtual"><VirtualTab /></TabsContent>
             <TabsContent value="processing"><ProcessingTab /></TabsContent>
@@ -63,12 +63,12 @@ function Section({ title, description, children }: { title: string; description?
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-6">
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
       <div className="min-w-0">
         <div className="text-sm">{label}</div>
         {hint && <div className="mt-0.5 text-xs text-muted-foreground">{hint}</div>}
       </div>
-      <div className="shrink-0">{children}</div>
+      <div className="min-w-0 max-w-full">{children}</div>
     </div>
   )
 }
@@ -95,7 +95,7 @@ function useDevices() {
 function DeviceSelect({ list, value, onChange, placeholder }: { list: AudioDevice[]; value: number | null; onChange: (id: number) => void; placeholder: string }) {
   return (
     <Select value={value === null ? undefined : String(value)} onValueChange={(v) => onChange(Number(v))}>
-      <SelectTrigger className="w-80"><SelectValue placeholder={placeholder} /></SelectTrigger>
+      <SelectTrigger className="w-80 min-w-0 max-w-full"><SelectValue placeholder={placeholder} /></SelectTrigger>
       <SelectContent>
         {list.map((d) => (
           <SelectItem key={d.id} value={String(d.id)}>

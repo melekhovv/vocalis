@@ -439,7 +439,7 @@ class ModelManager:
                 "name": name,
                 "nameRu": name,
                 "franchise": "Пользовательская модель",
-                "category": category if category in ("cartoon", "anime", "film_tv", "game", "other") else "other",
+                "category": category if category in ("cartoon", "anime", "film_tv", "game", "people", "other") else "other",
                 "description": description or f"Импортированная модель RVC {info['version']}, {info['sampleRate'] // 1000} кГц.",
                 "language": None,
                 "suggestedPitch": 0,

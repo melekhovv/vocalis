@@ -243,14 +243,14 @@ function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="min-w-0 grid-cols-[minmax(0,1fr)] sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Импорт модели RVC</DialogTitle>
           <DialogDescription>
             Поддерживаются модели RVC v1/v2 для инференса (.pth) и необязательный индекс (.index). Файл открывается в безопасном режиме — код из него не выполняется.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <div className="space-y-1.5">
             <Label>Название</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Гомер Симпсон" />
@@ -285,16 +285,16 @@ function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
 
 function FilePick({ label, value, onPick, onClear }: { label: string; value: string | null; onPick: () => void; onClear?: () => void }) {
   return (
-    <div className="space-y-1.5">
+    <div className="min-w-0 space-y-1.5">
       <Label>{label}</Label>
-      <div className="flex gap-2">
+      <div className="flex min-w-0 gap-2">
         <div className="flex h-9 min-w-0 flex-1 items-center rounded-md border bg-input/30 px-3 text-sm">
-          <span className={cn('truncate', !value && 'text-muted-foreground')}>{value ?? 'Файл не выбран'}</span>
+          <span title={value ?? undefined} className={cn('min-w-0 flex-1 truncate', !value && 'text-muted-foreground')}>{value ?? 'Файл не выбран'}</span>
         </div>
         {value && onClear && (
-          <Button variant="ghost" size="icon" onClick={onClear}><X /></Button>
+          <Button variant="ghost" size="icon" className="shrink-0" onClick={onClear} aria-label="Убрать файл индекса"><X /></Button>
         )}
-        <Button variant="outline" onClick={onPick}>Обзор…</Button>
+        <Button variant="outline" className="shrink-0" onClick={onPick}>Обзор…</Button>
       </div>
     </div>
   )
