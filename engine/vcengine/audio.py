@@ -96,7 +96,6 @@ def list_devices(refresh=False):
         devices = sd.query_devices()
     except Exception:
         devices = []
-    defaults = sd.default.device if devices else (None, None)
     for d in devices:
         api = apis[d["hostapi"]] if d["hostapi"] < len(apis) else "?"
         if api != preferred:
@@ -240,6 +239,7 @@ class AudioEngine:
         self.error = None
         self.voice_id = None
         self.pending_voice = None
+        self.voice_profiles: dict[str, dict] = {}
         self.devices = {"input": None, "output": None, "monitor": None}
         self.vc = None
         self.streams = []
@@ -304,6 +304,11 @@ class AudioEngine:
                 if kind in (int, float) and (isinstance(v, bool) or not isinstance(v, (int, float))):
                     raise ValueError(f"{k}: ожидается число")
                 self.params[k] = kind(v)
+            if self.voice_id:
+                vp = self.voice_profiles.setdefault(self.voice_id, {})
+                for k in ("pitch", "index_rate", "protect", "f0_method", "volume_envelope"):
+                    if k in changes and not (self.params["clarity_mode"] and k in ("index_rate", "protect")):
+                        vp[k] = self.params[k]
             if self.params["clarity_mode"]:
                 self.params["index_rate"] = min(self.params["index_rate"], 0.4)
                 self.params["protect"] = min(self.params["protect"], 0.1)
@@ -342,13 +347,29 @@ class AudioEngine:
             self._restart_streams()
         self.on_state()
 
+    def _voice_defaults(self, voice_id, index):
+        voice = next((v for v in self.models.list_voices() if v["id"] == voice_id), {})
+        profile = voice.get("recommendedParams") or {}
+        defaults = {
+            "pitch": voice.get("suggestedPitch", 0),
+            "index_rate": profile.get("index_rate", DEFAULT_PARAMS["index_rate"] if index else 0.0),
+            "protect": profile.get("protect", DEFAULT_PARAMS["protect"]),
+            "f0_method": profile.get("f0_method", PRESETS[self.preset]["f0_method"]),
+            "volume_envelope": profile.get("volume_envelope", DEFAULT_PARAMS["volume_envelope"]),
+        }
+        return defaults
+
     def select_voice(self, voice_id):
         """Select a validated model and its own timbre settings for UI and hotkeys."""
         pth, index = self.models.voice_paths(voice_id)
-        voice = next((v for v in self.models.list_voices() if v["id"] == voice_id), {})
-        profile = voice.get("recommendedParams") or {}
-        defaults = {k: profile[k] for k in ("index_rate", "protect", "f0_method") if k in profile}
-        defaults["pitch"] = voice.get("suggestedPitch", 0)
+        defaults = self._voice_defaults(voice_id, index)
+        saved = self.voice_profiles.get(voice_id)
+        if isinstance(saved, dict):
+            for k in ("pitch", "index_rate", "protect", "f0_method", "volume_envelope"):
+                if k in saved:
+                    defaults[k] = saved[k]
+        if not index:
+            defaults["index_rate"] = 0.0
         with self.lock:
             self.voice_id = voice_id
             self.params.update(defaults)
@@ -362,6 +383,16 @@ class AudioEngine:
                     "f0_method": self.params["f0_method"], "index_rate": self.params["index_rate"],
                 })
         self.on_state()
+
+    def reset_voice_profile(self, voice_id=None):
+        vid = voice_id or self.voice_id
+        if not vid:
+            return
+        self.voice_profiles.pop(vid, None)
+        if vid == self.voice_id:
+            self.select_voice(vid)
+        else:
+            self.on_state()
 
     def start(self):
         if self.worker is not None and self.worker.is_alive() and self.stop_evt.is_set():
@@ -667,6 +698,7 @@ class AudioEngine:
             "devices": self.devices,
             "compute": self.compute,
             "stats": self.stats,
+            "hasCustomProfile": bool(self.voice_id and self.voice_id in self.voice_profiles),
         }
 
 
@@ -686,6 +718,9 @@ def convert_clip(models, voice_id, audio: np.ndarray, params: dict, preset="qual
     config = copy(inference_config())
     if compute == "cpu":
         config.device = "cpu"
+    f0 = params.get("f0_method")
+    if f0 not in ("rmvpe", "fcpe", "crepe"):
+        f0 = "rmvpe"
     vc = VoiceConverter(config=config)
     try:
         with tempfile.TemporaryDirectory(prefix="vocalis-preview-") as tmp:
@@ -693,10 +728,11 @@ def convert_clip(models, voice_id, audio: np.ndarray, params: dict, preset="qual
             sf.write(source, audio, SR, subtype="FLOAT")
             vc.convert_audio(
                 str(source), str(target), pth, index or "",
-                pitch=int(params.get("pitch", 0)), f0_method="rmvpe",
-                index_rate=float(params.get("index_rate", 0.75)),
+                pitch=int(params.get("pitch", 0)), f0_method=f0,
+                index_rate=float(params.get("index_rate", 0.75)) if index else 0.0,
                 protect=float(params.get("protect", 0.33)),
-                volume_envelope=1.0, inference_engine="torch",
+                volume_envelope=float(params.get("volume_envelope", 1.0)),
+                inference_engine="torch",
             )
             out, sr = sf.read(target, dtype="float32")
             if sr != SR:

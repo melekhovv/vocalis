@@ -53,6 +53,7 @@ def save_settings():
         "params": engine.params,
         "preset": engine.preset,
         "voiceId": engine.voice_id,
+        "voiceProfiles": engine.voice_profiles,
         "compute": engine.compute,
         "devices": {k: by_id.get(v) for k, v in engine.devices.items()},
     }
@@ -83,6 +84,23 @@ def load_settings():
         engine.update_params(valid)
     if isinstance(data.get("preset"), str) and data["preset"] in audio_mod.PRESETS:
         engine.preset = data["preset"]
+    raw_profiles = data.get("voiceProfiles")
+    if isinstance(raw_profiles, dict):
+        restored = {}
+        for pvid, pmap in raw_profiles.items():
+            if not isinstance(pvid, str) or not isinstance(pmap, dict):
+                continue
+            clean = {}
+            for k, v in pmap.items():
+                if k in ("pitch", "index_rate", "protect", "f0_method", "volume_envelope"):
+                    try:
+                        engine.validate_params({k: v})
+                        clean[k] = v
+                    except (ValueError, TypeError):
+                        pass
+            if clean:
+                restored[pvid] = clean
+        engine.voice_profiles = restored
     engine.compute = "cpu" if data.get("compute") == "cpu" else "auto"
 
     def find(names_list, name):
@@ -227,8 +245,10 @@ def delete(voice_id: str):
     if engine.voice_id == voice_id and engine.state in ("running", "loading"):
         raise HTTPException(400, "Нельзя удалить активную модель во время работы — сначала остановите преобразование")
     models.delete(voice_id)
+    engine.voice_profiles.pop(voice_id, None)
     if engine.voice_id == voice_id:
         engine.voice_id = None
+    save_settings()
     return {"ok": True}
 
 
@@ -243,6 +263,26 @@ async def import_voice(body: dict):
 @app.post("/base-assets/download")
 def base_assets():
     return models.ensure_base_assets()
+
+
+@app.delete("/base-assets")
+def delete_base_assets():
+    if engine.state in ("running", "loading"):
+        raise HTTPException(400, "Остановите преобразование перед удалением базовых нейросетей")
+    if _preview_lock.locked():
+        raise HTTPException(409, "Дождитесь завершения обработки примера")
+    res = models.delete_base_assets()
+    bump()
+    return res
+
+
+@app.delete("/cache")
+def clear_cache():
+    if _preview_lock.locked():
+        raise HTTPException(409, "Дождитесь завершения обработки примера")
+    res = models.clear_cache()
+    bump()
+    return res
 
 
 @app.post("/engine/start")
@@ -263,6 +303,14 @@ def stop():
 @app.post("/engine/voice")
 def voice(body: dict):
     engine.select_voice(body["id"])
+    save_settings()
+    return engine.status()
+
+
+@app.post("/engine/voice/reset")
+def reset_voice(body: dict | None = None):
+    vid = (body or {}).get("id") if isinstance(body, dict) else None
+    engine.reset_voice_profile(vid)
     save_settings()
     return engine.status()
 
@@ -334,10 +382,84 @@ async def preview_convert(body: dict):
         return {"url": f"/preview/audio/{name}", "seconds": round(time.perf_counter() - t0, 2), "text": DEMO_TEXT}
 
 
+@app.post("/preview/record-test")
+async def preview_record_test(body: dict | None = None):
+    raw_sec = (body or {}).get("seconds", 4)
+    try:
+        seconds = float(raw_sec)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Некорректная длительность записи")
+    seconds = max(2.0, min(8.0, seconds))
+    async with _preview_lock:
+        if engine.state in ("running", "loading"):
+            raise HTTPException(400, "Остановите живое преобразование для теста записи")
+        if not engine.voice_id:
+            raise HTTPException(400, "Сначала выберите голос")
+        if engine.devices.get("input") is None:
+            raise HTTPException(400, "Микрофон не выбран")
+        if not models.base_assets_status()["ready"]:
+            raise HTTPException(400, "Базовые модели ещё не загружены")
+        models.voice_paths(engine.voice_id)
+        clip = await asyncio.to_thread(audio_mod.record, int(engine.devices["input"]), seconds)
+        clip = clip * float(engine.params.get("input_gain", 1.0))
+        if engine.params.get("noise_filter"):
+            from scipy.signal import sosfilt
+            clip = sosfilt(engine.hp_sos, clip).astype(np.float32)
+        if audio_mod._rms_db(clip) < -65:
+            raise HTTPException(400, "Сигнал микрофона слишком тихий или микрофон отключён")
+        raw_path = PREVIEW_DIR / "test-raw.wav"
+        conv_path = PREVIEW_DIR / "test-converted.wav"
+        sf.write(raw_path, clip, audio_mod.SR)
+        t0 = time.perf_counter()
+        out = await asyncio.to_thread(
+            audio_mod.convert_clip, models, engine.voice_id, clip, dict(engine.params), engine.preset, engine.compute
+        )
+        sf.write(conv_path, out, audio_mod.SR)
+        return {
+            "rawUrl": "/preview/audio/test-raw.wav",
+            "convertedUrl": "/preview/audio/test-converted.wav",
+            "seconds": round(time.perf_counter() - t0, 2),
+            "voiceId": engine.voice_id,
+        }
+
+
+@app.post("/preview/reconvert")
+async def preview_reconvert():
+    raw_path = PREVIEW_DIR / "test-raw.wav"
+    if not raw_path.is_file():
+        raise HTTPException(404, "Сначала запишите тестовую фразу")
+    async with _preview_lock:
+        if engine.state in ("running", "loading"):
+            raise HTTPException(400, "Остановите живое преобразование для теста записи")
+        if not engine.voice_id:
+            raise HTTPException(400, "Сначала выберите голос")
+        if not models.base_assets_status()["ready"]:
+            raise HTTPException(400, "Базовые модели ещё не загружены")
+        models.voice_paths(engine.voice_id)
+        clip, sr = sf.read(raw_path, dtype="float32")
+        if clip.ndim > 1:
+            clip = clip.mean(axis=1)
+        if sr != audio_mod.SR:
+            import soxr
+            clip = soxr.resample(clip, sr, audio_mod.SR)
+        t0 = time.perf_counter()
+        out = await asyncio.to_thread(
+            audio_mod.convert_clip, models, engine.voice_id, clip, dict(engine.params), engine.preset, engine.compute
+        )
+        conv_path = PREVIEW_DIR / "test-converted.wav"
+        sf.write(conv_path, out, audio_mod.SR)
+        return {
+            "rawUrl": "/preview/audio/test-raw.wav",
+            "convertedUrl": "/preview/audio/test-converted.wav",
+            "seconds": round(time.perf_counter() - t0, 2),
+            "voiceId": engine.voice_id,
+        }
+
+
 @app.get("/preview/audio/{name}")
 def preview_audio(name: str):
     voices = models.list_voices()
-    allowed = {f"{v['id']}.wav" for v in voices} | {f"demo-{v['id']}.wav" for v in voices}
+    allowed = {f"{v['id']}.wav" for v in voices} | {f"demo-{v['id']}.wav" for v in voices} | {"test-raw.wav", "test-converted.wav"}
     if name not in allowed:
         raise HTTPException(404)
     bundled = ENGINE_DIR / "assets" / "previews" / name

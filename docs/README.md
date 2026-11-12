@@ -1,5 +1,7 @@
 # Документация Vocalis
 
+- [Выпуск 1.2 и новые функции](RELEASE-1.2.md)
+- [Аудит 1.2: найденные баги и изменения](AUDIT-1.2.md)
 - [Аудит 1.1 и границы проверки](AUDIT-1.1.md)
 - [Аудит 1.0](AUDIT-1.0.md)
 - [Восстановление 0.1.5](RESTORE-0.1.5.md)
@@ -10,6 +12,6 @@
 
 Запуск: `powershell -NoProfile -File scripts/dev.ps1`.
 
-Проверки: `npm --prefix app run typecheck`, `node app/tests/startup.cjs`, `node app/tests/settings.cjs`, `engine/.venv/Scripts/python.exe -m unittest discover -s engine/tests -p "test_*.py"`.
+Проверки: `npm --prefix app run typecheck`, `node app/tests/startup.cjs`, `node app/tests/settings.cjs`, `node app/tests/deps-and-hotkeys.cjs`, `engine/.venv/Scripts/python.exe -m unittest discover -s engine/tests -p "test_*.py"`.
 
 Сборка Windows x64: `powershell -NoProfile -File scripts/build.ps1`. Установщик сохраняется в `app/release`; старые установщики удаляются только после успешной сборки нового. Публикация релиза — отдельное действие.

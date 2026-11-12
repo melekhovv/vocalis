@@ -56,3 +56,4 @@ nsis:
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
   license: build/license.txt
+  include: build/installer.nsh

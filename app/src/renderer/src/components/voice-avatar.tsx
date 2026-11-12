@@ -49,7 +49,8 @@ async function loadAvatar(title: string): Promise<string | null> {
           }
           return data
         } catch {
-          return null // offline: fall back to the monogram, retry next launch
+          inflight.delete(title)
+          return null // offline: fall back to the monogram, retry on next render
         }
       })(),
     )

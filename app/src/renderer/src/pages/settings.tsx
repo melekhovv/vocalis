@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { RefreshCw, Volume2, Mic, CheckCircle2, CircleAlert, ExternalLink, Loader2, Cpu, Zap, FolderOpen } from 'lucide-react'
+import { RefreshCw, Volume2, Mic, CheckCircle2, CircleAlert, ExternalLink, Loader2, Cpu, Zap, FolderOpen, Trash2, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -12,7 +13,7 @@ import { ParamSlider, ParamSwitch, setParam } from '@/components/param-controls'
 import { HotkeyRecorder, KeyRecorder } from '@/components/hotkey-recorder'
 import { useStore } from '@/lib/store'
 import { api, type SystemInfo } from '@/lib/api'
-import { bridge } from '@/lib/bridge'
+import { bridge, type DepsInfo } from '@/lib/bridge'
 import { formatBytes } from '@/lib/utils'
 import type { AudioDevice, DeviceList, HotkeyAction, Preset } from '@/lib/types'
 import { PRESET_LABELS } from '@/pages/home'
@@ -176,6 +177,16 @@ function DevicesTab() {
             </Button>
           </div>
         </Row>
+        {p.monitor && d.monitor === null && (
+          <p className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn">
+            Мониторинг включён, но устройство наушников не выбрано.
+          </p>
+        )}
+        {p.monitor && d.monitor !== null && d.monitor === d.output && (
+          <p className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn">
+            Устройство мониторинга совпадает с основным выводом — это может вызывать эхо или петлю звука. Выберите физические наушники для мониторинга.
+          </p>
+        )}
         <div className="flex justify-end">
           <Button variant="ghost" size="sm" onClick={() => refresh(true)} disabled={loading || running} title={running ? 'Остановите преобразование, чтобы пересканировать устройства' : undefined}>
             <RefreshCw className={loading ? 'animate-spin' : ''} /> Обновить список устройств
@@ -385,14 +396,79 @@ function HotkeysTab() {
 }
 
 function AppTab() {
-  const { settings, updateSettings } = useStore()
-  const [info, setInfo] = useState<{ version: string; dataRoot: string } | null>(null)
+  const { settings, updateSettings, status } = useStore()
+  const [info, setInfo] = useState<{ version: string; dataRoot: string; isDev: boolean; canUninstall: boolean } | null>(null)
   const [sys, setSys] = useState<SystemInfo | null>(null)
+  const [deps, setDeps] = useState<DepsInfo | null>(null)
+  const [busyAction, setBusyAction] = useState<'cache' | 'base' | 'runtime' | 'uninstall' | null>(null)
+  const [confirmKind, setConfirmKind] = useState<'base' | 'runtime' | 'uninstall' | null>(null)
+
+  const refreshStorage = useCallback(() => {
+    api.system().then(setSys).catch(() => {})
+    bridge.depsInfo().then(setDeps).catch(() => {})
+  }, [])
+
   useEffect(() => {
     bridge.appInfo().then(setInfo)
-    api.system().then(setSys).catch(() => {})
-  }, [])
+    refreshStorage()
+  }, [refreshStorage, status?.baseAssets.ready])
+
   if (!settings) return null
+  const cacheTotal = (sys?.storage.cacheBytes ?? 0) + (sys?.storage.previewsBytes ?? 0)
+  const baseTotal = sys?.storage.baseBytes ?? 0
+  const running = status?.engine.state === 'running' || status?.engine.state === 'loading'
+
+  const clearCache = async () => {
+    setBusyAction('cache')
+    try {
+      const r = await api.clearCache()
+      toast.success('Кэш очищен', { description: `Освобождено ${formatBytes(r.removedBytes)}` })
+      refreshStorage()
+    } catch (e) {
+      toast.error('Не удалось очистить кэш', { description: (e as Error).message })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  const removeBase = async () => {
+    setConfirmKind(null)
+    setBusyAction('base')
+    try {
+      const r = await api.deleteBase()
+      toast.success('Базовые нейросети удалены', { description: `Освобождено ${formatBytes(r.removedBytes)}` })
+      refreshStorage()
+    } catch (e) {
+      toast.error('Не удалось удалить базовые нейросети', { description: (e as Error).message })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  const removeRuntime = async () => {
+    setConfirmKind(null)
+    setBusyAction('runtime')
+    try {
+      await bridge.removeRuntimeDeps()
+      toast.success('Python-движок и зависимости удалены')
+    } catch (e) {
+      toast.error('Не удалось удалить зависимости', { description: (e as Error).message })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  const runUninstaller = async () => {
+    setConfirmKind(null)
+    setBusyAction('uninstall')
+    try {
+      await bridge.uninstallApp()
+    } catch (e) {
+      toast.error('Не удалось запустить деинсталлятор', { description: (e as Error).message })
+      setBusyAction(null)
+    }
+  }
+
   return (
     <div className="space-y-5">
       <Section title="Запуск и закрытие">
@@ -403,17 +479,74 @@ function AppTab() {
           <Switch checked={settings.closeToTray} onCheckedChange={(v) => updateSettings({ closeToTray: v })} />
         </Row>
       </Section>
-      <Section title="Хранение моделей">
-        <Row label="Папка данных" hint={sys?.storage.dataDir}>
-          <Button variant="outline" size="sm" onClick={() => sys && bridge.openPath(sys.storage.dataDir)}><FolderOpen /> Открыть</Button>
+      <Section title="Управление зависимостями и данными" description="Вы можете выборочно удалить загруженные зависимости, не затрагивая ваши голосовые модели.">
+        <Row label="Папка данных" hint={sys?.storage.dataDir ?? info?.dataRoot}>
+          <Button variant="outline" size="sm" onClick={() => bridge.openPath(sys?.storage.dataDir ?? info?.dataRoot ?? '')}><FolderOpen /> Открыть</Button>
+        </Row>
+        <Separator />
+        <Row
+          label="Python-окружение и PyTorch (движок)"
+          hint={deps ? `Расположение: ${deps.runtimePath}` : undefined}
+        >
+          <div className="flex items-center gap-3">
+            <span className="tabular text-sm text-muted-foreground">{deps ? formatBytes(deps.runtimeBytes) : '—'}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              disabled={!deps?.pythonInstalled || busyAction !== null}
+              onClick={() => setConfirmKind('runtime')}
+            >
+              {busyAction === 'runtime' ? <Loader2 className="animate-spin" /> : <Trash2 />} Удалить движок
+            </Button>
+          </div>
+        </Row>
+        <Row
+          label="Базовые нейросети (ContentVec, RMVPE, FCPE)"
+          hint="Общие нейросети для извлечения речи и высоты тона"
+        >
+          <div className="flex items-center gap-3">
+            <span className="tabular text-sm text-muted-foreground">{formatBytes(baseTotal)}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              disabled={baseTotal === 0 || running || busyAction !== null}
+              title={running ? 'Остановите преобразование перед удалением' : undefined}
+              onClick={() => setConfirmKind('base')}
+            >
+              {busyAction === 'base' ? <Loader2 className="animate-spin" /> : <Trash2 />} Удалить
+            </Button>
+          </div>
+        </Row>
+        <Row label="Кэш загрузок и временные превью" hint="Архивы, незавершённые скачивания и локальные тестовые WAV">
+          <div className="flex items-center gap-3">
+            <span className="tabular text-sm text-muted-foreground">{formatBytes(cacheTotal)}</span>
+            <Button variant="outline" size="sm" disabled={cacheTotal === 0 || busyAction !== null} onClick={clearCache}>
+              {busyAction === 'cache' ? <Loader2 className="animate-spin" /> : <Trash2 />} Очистить кэш
+            </Button>
+          </div>
         </Row>
         {sys && (
-          <Row label="Занято на диске">
-            <span className="tabular text-sm text-muted-foreground">
-              голоса {formatBytes(sys.storage.voicesBytes)} · базовые модели {formatBytes(sys.storage.baseBytes)}
-            </span>
+          <Row label="Голосовые модели" hint="Удаляются отдельно в «Менеджере моделей»">
+            <span className="tabular text-sm text-muted-foreground">{formatBytes(sys.storage.voicesBytes)}</span>
           </Row>
         )}
+      </Section>
+      <Section title="Деинсталлятор и удаление программы">
+        <Row
+          label="Удалить Vocalis с компьютера"
+          hint={info?.canUninstall ? 'Запустит штатный мастер удаления Windows с возможностью убрать зависимости и настройки.' : 'Штатный деинсталлятор доступен в установленной Windows-сборке приложения.'}
+        >
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={!info?.canUninstall || busyAction !== null}
+            onClick={() => setConfirmKind('uninstall')}
+          >
+            {busyAction === 'uninstall' ? <Loader2 className="animate-spin" /> : <TriangleAlert />} Запустить деинсталлятор
+          </Button>
+        </Row>
       </Section>
       <Section title="О программе">
         <Row label="Версия"><span className="text-sm text-muted-foreground">{info?.version}</span></Row>
@@ -422,6 +555,36 @@ function AppTab() {
         </p>
         <Button variant="ghost" size="sm" onClick={() => updateSettings({ acceptedNotice: false })}>Показать предупреждение о моделях снова</Button>
       </Section>
+
+      <AlertDialog open={confirmKind !== null} onOpenChange={(o) => !o && setConfirmKind(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmKind === 'runtime'
+                ? 'Удалить Python-движок и PyTorch?'
+                : confirmKind === 'base'
+                  ? 'Удалить базовые нейросети?'
+                  : 'Запустить удаление Vocalis?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmKind === 'runtime'
+                ? 'Аудиодвижок будет остановлен, а папка с Python и PyTorch (~4 ГБ) удалена с диска. Ваши голосовые модели и настройки сохранятся. Вы сможете переустановить движок в любой момент с экрана запуска.'
+                : confirmKind === 'base'
+                  ? 'Файлы ContentVec, RMVPE и FCPE будут удалены. Без них преобразование голоса не запустится, но вы сможете скачать их заново в Менеджере моделей.'
+                  : 'Приложение закроется и запустит мастер удаления Windows. В процессе удаления можно будет отдельно выбрать очистку загруженных зависимостей.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={confirmKind === 'runtime' ? removeRuntime : confirmKind === 'base' ? removeBase : runUninstaller}
+            >
+              {confirmKind === 'uninstall' ? 'Удалить приложение' : 'Удалить'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

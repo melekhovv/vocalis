@@ -1,27 +1,95 @@
 import { useEffect, useState } from 'react'
-import { Cpu, MemoryStick, MonitorSpeaker, Activity } from 'lucide-react'
+import { Cpu, MemoryStick, MonitorSpeaker, Activity, CheckCircle2, CircleAlert, Copy, FileDown } from 'lucide-react'
+import { toast } from 'sonner'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { useStore } from '@/lib/store'
 import { api, type SystemInfo } from '@/lib/api'
-import { bridge } from '@/lib/bridge'
+import { bridge, type DepsInfo } from '@/lib/bridge'
+import { formatBytes } from '@/lib/utils'
+import type { DeviceList } from '@/lib/types'
 
 export function SystemPage() {
-  const { status, info } = useStore()
+  const { status, info, voices } = useStore()
   const [sys, setSys] = useState<SystemInfo | null>(null)
+  const [devs, setDevs] = useState<DeviceList | null>(null)
+  const [deps, setDeps] = useState<DepsInfo | null>(null)
   useEffect(() => {
     api.system().then(setSys).catch(() => {})
+    api.devices().then(setDevs).catch(() => {})
+    bridge.depsInfo().then(setDeps).catch(() => {})
   }, [])
   const s = status!.system
   const st = status!.engine.stats
-  const running = status!.engine.state === 'running'
+  const e = status!.engine
+  const running = e.state === 'running'
   const hw = sys?.hardware
+  const readyVoices = voices.filter((v) => v.status === 'ready').length
+  const cableOut = devs?.outputs.find((d) => d.isVirtualCable)
+  const cableSelected = !!cableOut && e.devices.output === cableOut.id
+
+  const buildReport = () => {
+    const lines = [
+      `Vocalis Diagnostics Report (${new Date().toISOString()})`,
+      `Engine version: ${status!.version}`,
+      `Engine state: ${e.state} (compute=${e.compute}, preset=${e.preset})`,
+      `Hardware CPU: ${hw?.cpu ?? 'unknown'} (${hw?.cores ?? '?'}c/${hw?.threads ?? '?'}t, RAM ${hw?.ramGb ?? '?'} GB)`,
+      `Hardware GPU: ${hw?.gpu ?? 'none'} (VRAM ${hw?.vramGb ?? 0} GB, CUDA=${hw?.cuda ? hw.cudaVersion : 'no'})`,
+      `PyTorch: ${hw?.torch ?? 'unknown'}`,
+      `Base assets ready: ${status!.baseAssets.ready}`,
+      `Models ready: ${readyVoices} / ${voices.length}`,
+      `Storage: runtime=${deps ? formatBytes(deps.runtimeBytes) : '?'}, base=${sys ? formatBytes(sys.storage.baseBytes) : '?'}, voices=${sys ? formatBytes(sys.storage.voicesBytes) : '?'}`,
+      `Host API: ${devs?.hostApi ?? 'unknown'}`,
+      `Virtual cable detected: ${Boolean(cableOut)} (selected=${cableSelected})`,
+      `Input device id: ${e.devices.input ?? 'none'}, Output id: ${e.devices.output ?? 'none'}, Monitor id: ${e.devices.monitor ?? 'none'}`,
+      `Stats: device=${st.device ?? '-'}, blockMs=${st.blockMs.toFixed(1)}, inferAvgMs=${st.inferMsAvg.toFixed(1)}, rtf=${st.realtimeFactor.toFixed(2)}, drops=${st.inputDrops}/${st.outputUnderruns}`,
+      '',
+      '--- Engine Log (last 60 lines) ---',
+      ...(info?.log.length ? info.log : ['(empty)']),
+    ]
+    return lines.join('\n')
+  }
+
+  const copyLogs = async () => {
+    try {
+      await navigator.clipboard.writeText(info?.log.join('\n') || 'Пусто')
+      toast.success('Журнал скопирован в буфер обмена')
+    } catch {
+      toast.error('Не удалось скопировать журнал')
+    }
+  }
+
+  const saveReport = async () => {
+    try {
+      const saved = await bridge.saveDiagnostics(buildReport())
+      if (saved) toast.success('Отчёт сохранён', { description: saved })
+    } catch (err) {
+      toast.error('Не удалось сохранить отчёт', { description: (err as Error).message })
+    }
+  }
 
   return (
     <ScrollArea className="h-full min-w-0">
       <div className="@container w-full min-w-0 space-y-5 px-8 pb-10">
-        <h1 className="text-2xl font-semibold tracking-tight">Система</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">Система</h1>
+          <Button variant="outline" size="sm" onClick={saveReport}>
+            <FileDown /> Сохранить отчёт диагностики
+          </Button>
+        </div>
+
+        <section className="rounded-xl border bg-card">
+          <div className="border-b px-5 py-3.5 text-sm font-medium">Готовность к работе</div>
+          <div className="grid grid-cols-1 gap-3 p-5 text-sm @min-[44rem]:grid-cols-2">
+            <CheckRow ok={info?.state === 'ready'} label="Python-движок запущен" />
+            <CheckRow ok={status!.baseAssets.ready} label="Базовые нейросети загружены" />
+            <CheckRow ok={!!hw?.cuda} warnLabel="CUDA не найдена — используется CPU" label={`GPU-ускорение (${hw?.gpu ?? 'CUDA'})`} />
+            <CheckRow ok={e.devices.input !== null} label="Микрофон выбран" warnLabel="Микрофон не выбран" />
+            <CheckRow ok={!!cableOut && cableSelected} label="Вывод направлен в VB-CABLE" warnLabel={cableOut ? 'Вывод не направлен в CABLE Input' : 'VB-CABLE не обнаружен'} />
+            <CheckRow ok={readyVoices > 0} label={`Доступно голосов: ${readyVoices}`} warnLabel="Нет загруженных голосовых моделей" />
+          </div>
+        </section>
         <div className="grid min-w-0 grid-cols-1 gap-4 @min-[42rem]:grid-cols-3">
           <Stat icon={Cpu} label="Процессор" value={`${s.cpu.toFixed(0)}%`} sub={hw ? `${hw.cores} ядер / ${hw.threads} потоков` : ''} progress={s.cpu} />
           <Stat
@@ -65,7 +133,10 @@ export function SystemPage() {
         <section className="rounded-xl border bg-card">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3 text-sm font-medium">
             Журнал движка
-            <Button variant="ghost" size="sm" onClick={() => bridge.restartEngine()}>Перезапустить движок</Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={copyLogs}><Copy className="size-3.5" /> Копировать</Button>
+              <Button variant="ghost" size="sm" onClick={() => bridge.restartEngine()}>Перезапустить движок</Button>
+            </div>
           </div>
           <pre className="max-h-64 min-w-0 max-w-full overflow-auto p-4 font-mono text-[11px] leading-relaxed text-muted-foreground select-text">{info?.log.join('\n') || 'Пусто'}</pre>
         </section>
@@ -81,6 +152,15 @@ function Stat({ icon: Icon, label, value, sub, progress }: { icon: typeof Cpu; l
       <div className="tabular mt-2 text-2xl font-semibold tracking-tight">{value}</div>
       <div className="mt-1 truncate text-xs text-muted-foreground" title={sub}>{sub}</div>
       {progress !== undefined && <Progress value={progress} className="mt-3 h-1" />}
+    </div>
+  )
+}
+
+function CheckRow({ ok, label, warnLabel }: { ok: boolean; label: string; warnLabel?: string }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      {ok ? <CheckCircle2 className="size-4 shrink-0 text-live" /> : <CircleAlert className="size-4 shrink-0 text-warn" />}
+      <span className={ok ? 'text-foreground' : 'text-muted-foreground'}>{ok ? label : (warnLabel || label)}</span>
     </div>
   )
 }

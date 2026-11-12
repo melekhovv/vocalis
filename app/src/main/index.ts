@@ -1,8 +1,8 @@
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
-import { spawn, ChildProcess } from 'node:child_process'
+import { spawn, spawnSync, ChildProcess } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 
 // Keep automated screenshot runs separate from the user's open application.
 if (process.env.VOCALIS_SHOTS) {
@@ -80,11 +80,27 @@ type EngineState = 'needs-setup' | 'installing' | 'starting' | 'ready' | 'crashe
 const isDev = !app.isPackaged
 const engineDir = isDev ? resolve(__dirname, '../../../engine') : join(process.resourcesPath, 'engine')
 const dataRoot = join(process.env.LOCALAPPDATA || app.getPath('appData'), 'Vocalis')
-const runtimeEnv = isDev ? join(engineDir, '.venv') : join(dataRoot, 'runtime', 'venv')
+const runtimeRoot = isDev ? join(engineDir, '.venv') : join(dataRoot, 'runtime')
+const runtimeEnv = isDev ? join(engineDir, '.venv') : join(runtimeRoot, 'venv')
 const pythonExe = join(runtimeEnv, 'Scripts', 'python.exe')
-const uvExe = isDev
-  ? join(process.env.APPDATA || '', 'Python', 'Python314', 'Scripts', 'uv.exe')
-  : join(process.resourcesPath, 'bin', 'uv.exe')
+
+function resolveUvExe(): string {
+  if (!isDev) return join(process.resourcesPath, 'bin', 'uv.exe')
+  const bundled = resolve(__dirname, '../../build/bin/uv.exe')
+  if (existsSync(bundled)) return bundled
+  const appDataPy = join(process.env.APPDATA || '', 'Python')
+  if (existsSync(appDataPy)) {
+    try {
+      for (const entry of readdirSync(appDataPy).sort().reverse()) {
+        const candidate = join(appDataPy, entry, 'Scripts', 'uv.exe')
+        if (existsSync(candidate)) return candidate
+      }
+    } catch { /* ignore */ }
+  }
+  return 'uv'
+}
+
+const uvExe = resolveUvExe()
 
 const token = randomBytes(24).toString('base64url')
 let engineProc: ChildProcess | null = null
@@ -221,6 +237,106 @@ async function engineFetch(path: string, body?: unknown) {
   return json
 }
 
+function killProcTree(proc: ChildProcess | null) {
+  if (!proc) return
+  if (process.platform === 'win32' && proc.pid) {
+    try {
+      spawnSync('taskkill', ['/pid', String(proc.pid), '/t', '/f'], { windowsHide: true, timeout: 4000 })
+      return
+    } catch { /* fallback to proc.kill */ }
+  }
+  try {
+    proc.kill()
+  } catch { /* already gone */ }
+}
+
+function cancelSetup() {
+  if (!setupProc) return false
+  const proc = setupProc
+  setupProc = null
+  killProcTree(proc)
+  pushLog('[установка зависимостей отменена пользователем]')
+  setEngineState('needs-setup')
+  return true
+}
+
+function dirBytes(root: string): number {
+  if (!existsSync(root)) return 0
+  let total = 0
+  const stack = [root]
+  while (stack.length) {
+    const dir = stack.pop()!
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const entry of entries) {
+      if (entry.isSymbolicLink()) continue
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) stack.push(full)
+      else if (entry.isFile()) {
+        try {
+          total += statSync(full).size
+        } catch { /* skip locked */ }
+      }
+    }
+  }
+  return total
+}
+
+function uninstallerPath(): string | null {
+  if (!app.isPackaged) return null
+  const candidate = join(dirname(app.getPath('exe')), 'Uninstall Vocalis.exe')
+  return existsSync(candidate) ? candidate : null
+}
+
+function depsInfo() {
+  return {
+    runtimeBytes: dirBytes(runtimeRoot),
+    runtimePath: runtimeRoot,
+    pythonInstalled: existsSync(pythonExe),
+    canUninstall: Boolean(uninstallerPath()),
+  }
+}
+
+async function removeRuntimeDeps() {
+  if (quitting) throw new Error('Приложение завершает работу')
+  cancelSetup()
+  if (engineProc) {
+    const proc = engineProc
+    restarts = 99
+    if (engineState === 'ready') {
+      try {
+        await engineFetch('/shutdown', {})
+      } catch { /* engine gone */ }
+    }
+    await new Promise((r) => setTimeout(r, 350))
+    if (engineProc === proc) {
+      engineProc = null
+      killProcTree(proc)
+      await new Promise((r) => setTimeout(r, 400))
+    }
+  }
+  enginePort = 0
+  engineLog = []
+  restarts = 0
+  if (existsSync(runtimeRoot)) {
+    rmSync(runtimeRoot, { recursive: true, force: true, maxRetries: 6, retryDelay: 250 })
+  }
+  setEngineState('needs-setup')
+  return depsInfo()
+}
+
+function launchUninstaller() {
+  const exe = uninstallerPath()
+  if (!exe) throw new Error('Деинсталлятор доступен только в установленной Windows-версии приложения')
+  const child = spawn(exe, [], { detached: true, stdio: 'ignore' })
+  child.unref()
+  quit()
+}
+
 // ------------------------------------------------------------------ hotkeys
 async function runAction(action: HotkeyAction) {
   try {
@@ -260,8 +376,16 @@ function rememberRecent(id: string) {
 function applyHotkeys(): Record<string, string> {
   globalShortcut.unregisterAll()
   const errors: Record<string, string> = {}
+  const seen = new Map<string, HotkeyAction>()
   for (const [action, accel] of Object.entries(settings.hotkeys) as [HotkeyAction, string][]) {
     if (!accel) continue
+    const norm = accel.trim().toLowerCase()
+    const dup = seen.get(norm)
+    if (dup) {
+      errors[action] = 'Уже назначено на другое действие'
+      continue
+    }
+    seen.set(norm, action)
     try {
       if (!globalShortcut.register(accel, () => runAction(action))) errors[action] = 'Сочетание занято другим приложением'
     } catch {
@@ -338,14 +462,14 @@ function createTray() {
 async function quit() {
   if (quitting) return
   quitting = true
-  setupProc?.kill()
+  killProcTree(setupProc)
   try {
     if (engineState === 'ready') await engineFetch('/shutdown', {})
   } catch {
     /* engine already gone */
   }
   setTimeout(() => {
-    engineProc?.kill()
+    killProcTree(engineProc)
     app.quit()
   }, 300)
 }
@@ -354,11 +478,26 @@ async function quit() {
 function registerIpc() {
   ipcMain.handle('engine:info', () => engineInfo())
   ipcMain.handle('engine:setup', () => setupEngine())
+  ipcMain.handle('engine:cancelSetup', () => cancelSetup())
   ipcMain.handle('engine:restart', () => {
     if (setupProc || quitting) return
     restarts = 0
     if (engineProc) engineProc.kill()
     else startEngine()
+  })
+  ipcMain.handle('deps:info', () => depsInfo())
+  ipcMain.handle('deps:removeRuntime', () => removeRuntimeDeps())
+  ipcMain.handle('app:uninstall', () => launchUninstaller())
+  ipcMain.handle('app:saveDiagnostics', async (_e, content: string) => {
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+    const r = await dialog.showSaveDialog(win!, {
+      title: 'Сохранить отчёт диагностики',
+      defaultPath: `vocalis-diagnostics-${stamp}.txt`,
+      filters: [{ name: 'Текстовый файл', extensions: ['txt'] }],
+    })
+    if (r.canceled || !r.filePath) return null
+    writeFileSync(r.filePath, String(content || ''), 'utf-8')
+    return r.filePath
   })
   ipcMain.handle('settings:get', () => settings)
   ipcMain.handle('settings:set', (_e, patch: Partial<AppSettings>) => {
@@ -389,7 +528,7 @@ function registerIpc() {
   })
   ipcMain.handle('shell:openPath', (_e, p: string) => shell.openPath(p))
   ipcMain.handle('shell:soundSettings', () => shell.openExternal('ms-settings:sound'))
-  ipcMain.handle('app:info', () => ({ version: app.getVersion(), dataRoot, engineDir, isDev }))
+  ipcMain.handle('app:info', () => ({ version: app.getVersion(), dataRoot, engineDir, isDev, canUninstall: Boolean(uninstallerPath()) }))
 }
 
 // ------------------------------------------------------------------ QA screenshots
@@ -489,8 +628,8 @@ if (!app.requestSingleInstanceLock()) {
   app.on('will-quit', () => globalShortcut.unregisterAll())
   app.on('before-quit', () => {
     quitting = true
-    setupProc?.kill()
-    engineProc?.kill()
+    killProcTree(setupProc)
+    killProcTree(engineProc)
   })
   app.on('window-all-closed', () => {
     if (!settings.closeToTray) quit()

@@ -1,9 +1,21 @@
 import type { AppSettings, EngineInfo, HotkeyAction } from './types'
 
+export interface DepsInfo {
+  runtimeBytes: number
+  runtimePath: string
+  pythonInstalled: boolean
+  canUninstall: boolean
+}
+
 interface Bridge {
   engineInfo(): Promise<EngineInfo>
   setupEngine(): Promise<void>
+  cancelSetup(): Promise<boolean>
   restartEngine(): Promise<void>
+  depsInfo(): Promise<DepsInfo>
+  removeRuntimeDeps(): Promise<DepsInfo>
+  uninstallApp(): Promise<void>
+  saveDiagnostics(content: string): Promise<string | null>
   onEngineState(cb: (info: EngineInfo) => void): () => void
   onEngineLog(cb: (line: string) => void): () => void
   getSettings(): Promise<AppSettings>
@@ -16,7 +28,7 @@ interface Bridge {
   openExternal(url: string): Promise<void>
   openPath(p: string): Promise<string>
   openSoundSettings(): Promise<void>
-  appInfo(): Promise<{ version: string; dataRoot: string; engineDir: string; isDev: boolean }>
+  appInfo(): Promise<{ version: string; dataRoot: string; engineDir: string; isDev: boolean; canUninstall: boolean }>
 }
 
 export const bridge = (window as unknown as { vocalis: Bridge }).vocalis

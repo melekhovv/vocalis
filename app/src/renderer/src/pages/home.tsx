@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Power, Loader2, Mic, Speaker, Headphones, Library, TriangleAlert, Gauge, Wand2, Cable } from 'lucide-react'
+import { Power, Loader2, Mic, Speaker, Headphones, Library, TriangleAlert, Gauge, Wand2, Cable, ArrowLeftRight, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { VoiceAvatar } from '@/components/voice-avatar'
+import { VoiceTestDialog } from '@/components/voice-test-dialog'
 import { LevelMeter, Waveform } from '@/components/meters'
 import { ParamSlider, ParamSwitch, setParam } from '@/components/param-controls'
 import { useStore } from '@/lib/store'
@@ -19,6 +20,7 @@ export const PRESET_LABELS: Record<Preset, string> = { performance: 'Скоро�
 
 export function HomePage({ go }: { go: (p: Page, tab?: string) => void }) {
   const { status, activeVoice, levels, toggleEngine, voices } = useStore()
+  const [testOpen, setTestOpen] = useState(false)
   const e = status!.engine
   const running = e.state === 'running'
   const loading = e.state === 'loading'
@@ -75,6 +77,11 @@ export function HomePage({ go }: { go: (p: Page, tab?: string) => void }) {
           <div className="mt-3 min-h-5 w-full text-center text-sm">
             <StateLine />
           </div>
+          {activeVoice && (
+            <Button variant="outline" size="sm" className="mt-3" onClick={() => setTestOpen(true)}>
+              <ArrowLeftRight className="size-3.5" /> Тест записи (До / После)
+            </Button>
+          )}
 
           <div className="mt-6 w-full max-w-xl">
             <Waveform history={running ? levels.output : levels.input} accent={accent} active={running && !e.params.bypass} />
@@ -85,6 +92,8 @@ export function HomePage({ go }: { go: (p: Page, tab?: string) => void }) {
           </div>
         </div>
       </section>
+
+      <VoiceTestDialog open={testOpen} onOpenChange={setTestOpen} />
 
       {/* ---------------------------------------------------- side panel */}
       <aside className="w-72 shrink-0 border-l bg-card/40 xl:w-80">
@@ -151,7 +160,15 @@ function QuickSettings() {
         format={(v) => `${v > 0 ? '+' : ''}${v} пт`}
         onCommit={(v) => setParam({ pitch: v })}
       />
-      {activeVoice && p.pitch !== activeVoice.suggestedPitch && (
+      {activeVoice && e.hasCustomProfile && (
+        <button
+          className="-mt-3 flex items-center gap-1.5 text-xs text-primary hover:underline"
+          onClick={() => api.resetVoiceProfile().then(() => toast.success('Настройки голоса сброшены')).catch((err) => toast.error('Не удалось сбросить', { description: err.message }))}
+        >
+          <RotateCcw className="size-3" /> Сбросить личный профиль голоса
+        </button>
+      )}
+      {activeVoice && p.pitch !== activeVoice.suggestedPitch && !e.hasCustomProfile && (
         <button className="-mt-3 text-xs text-primary hover:underline" onClick={() => setParam({ pitch: activeVoice.suggestedPitch })}>
           Сбросить на рекомендуемую ({activeVoice.suggestedPitch > 0 ? '+' : ''}{activeVoice.suggestedPitch})
         </button>

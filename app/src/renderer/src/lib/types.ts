@@ -96,6 +96,7 @@ export interface EngineStatus {
   devices: { input: number | null; output: number | null; monitor: number | null }
   compute: 'auto' | 'cpu'
   stats: EngineStats
+  hasCustomProfile?: boolean
 }
 
 export interface SystemStats {

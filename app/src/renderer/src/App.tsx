@@ -221,10 +221,13 @@ function EngineGate() {
               {state === 'installing' ? 'Устанавливаем зависимости — это может занять несколько минут…' : busy ? 'Запускаем аудиодвижок…' : ''}
             </div>
           )}
-          {state === 'installing' && <div className="space-y-2 text-left" role="status" aria-live="polite">
+          {state === 'installing' && <div className="space-y-3 text-left" role="status" aria-live="polite">
             <Progress className="animate-pulse" aria-label="Установка зависимостей" />
             <p className="text-xs text-muted-foreground">{info?.log.at(-1) || 'Подготавливаем Python и список пакетов…'}</p>
-            <p className="text-xs text-muted-foreground">Загрузка → распаковка → установка → запуск. Точный общий процент установщик пакетов не предоставляет.</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">Загрузка → распаковка → установка → запуск.</p>
+              <Button variant="outline" size="sm" onClick={() => bridge.cancelSetup()}>Отменить</Button>
+            </div>
           </div>}
           {!!info?.log.length && (state !== 'starting') && (
             <pre className="max-h-48 overflow-auto rounded-lg border bg-card p-3 text-left font-mono text-[11px] text-muted-foreground">

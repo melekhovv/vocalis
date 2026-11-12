@@ -48,14 +48,26 @@ export const api = {
   importVoice: (b: { name: string; pth: string; index?: string | null; category: string; description?: string }) =>
     req<{ id: string }>('POST', '/voices/import', b),
   downloadBase: () => req('POST', '/base-assets/download'),
+  deleteBase: () => req<{ removedBytes: number }>('DELETE', '/base-assets'),
+  clearCache: () => req<{ removedBytes: number }>('DELETE', '/cache'),
   start: () => req<EngineStatus>('POST', '/engine/start'),
   stop: () => req<EngineStatus>('POST', '/engine/stop'),
   selectVoice: (id: string) => req<EngineStatus>('POST', '/engine/voice', { id }),
+  resetVoiceProfile: (id?: string) => req<EngineStatus>('POST', '/engine/voice/reset', id ? { id } : {}),
   params: (p: Partial<EngineParams>) => req<EngineStatus>('POST', '/engine/params', p),
   preset: (name: Preset) => req<EngineStatus>('POST', '/engine/preset', { name }),
   compute: (device: 'auto' | 'cpu') => req<EngineStatus>('POST', '/engine/compute', { device }),
   system: () => req<SystemInfo>('GET', '/system'),
   previewConvert: (voiceId: string) => req<{ url: string; seconds: number }>('POST', '/preview/convert', { voiceId }),
+  previewRecordTest: (seconds = 4) => req<RecordTestResult>('POST', '/preview/record-test', { seconds }),
+  previewReconvert: () => req<RecordTestResult>('POST', '/preview/reconvert', {}),
+}
+
+export interface RecordTestResult {
+  rawUrl: string
+  convertedUrl: string
+  seconds: number
+  voiceId: string
 }
 
 export interface SystemInfo {
@@ -70,7 +82,13 @@ export interface SystemInfo {
     gpu?: string
     vramGb?: number
   }
-  storage: { dataDir: string; voicesBytes: number; baseBytes: number }
+  storage: {
+    dataDir: string
+    voicesBytes: number
+    baseBytes: number
+    cacheBytes?: number
+    previewsBytes?: number
+  }
   presets: Record<string, { block_frame: number; crossfade: number; extra: number; f0_method: string }>
 }
 

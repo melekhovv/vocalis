@@ -135,11 +135,16 @@ def _apply_config(vc: VoiceChanger, cfg):
         import torchaudio.transforms as tat
 
         vc.vc_model.model_path = model_path
+        vc.vc_model.pipeline._graph_cache = None
         vc.vc_model.pipeline.vc.load_model(model_path)
         vc.vc_model.pipeline.vc.setup_network()
         vc.vc_model.pipeline.version = vc.vc_model.pipeline.vc.version
         vc.vc_model.pipeline.use_f0 = vc.vc_model.pipeline.vc.use_f0
         vc.vc_model.pipeline.tgt_sr = vc.vc_model.pipeline.vc.tgt_sr
+        if vc.vc_model.pipeline.use_f0 and vc.vc_model.pipeline.f0_model is None and vc.vc_model.pipeline.f0_method != "crepe":
+            vc.vc_model.pipeline.f0_model = vc.vc_model.pipeline.setup_f0(vc.vc_model.pipeline.f0_method)
+        elif not vc.vc_model.pipeline.use_f0:
+            vc.vc_model.pipeline.f0_model = None
         vc.vc_model.resample_out = tat.Resample(
             orig_freq=vc.vc_model.pipeline.tgt_sr,
             new_freq=AUDIO_SAMPLE_RATE,

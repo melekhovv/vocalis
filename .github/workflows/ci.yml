@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Typecheck, Lint & Tests
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install shell dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: TypeScript typecheck
+        working-directory: app
+        run: npm run typecheck
+
+      - name: Run Electron shell tests
+        working-directory: app
+        run: |
+          node tests/startup.cjs
+          node tests/settings.cjs
+          node tests/deps-and-hotkeys.cjs
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Verify engine lockfile
+        run: uv lock --check --project engine
+
+      - name: Engine linter (ruff)
+        run: uv run --with ruff ruff check --select E4,E7,E9,F --ignore E402,E701,E722 engine/vcengine
+
+      - name: Run Engine unit tests (CPU environment)
+        working-directory: engine
+        run: |
+          uv venv --python 3.11 .venv-ci
+          uv pip install --python .venv-ci/Scripts/python.exe --extra-index-url https://download.pytorch.org/whl/cpu numpy==2.4.6 scipy==1.17.1 soundfile==0.14.0 soxr==1.1.0 torch==2.11.0 torchaudio==2.11.0 webrtcvad-wheels==2.0.14 psutil==7.2.2 requests==2.34.2 fastapi>=0.110.0 uvicorn>=0.30.0 websockets>=13.0
+          .venv-ci\Scripts\python.exe -B -m unittest discover -s tests -p "test_*.py" -v
+
+  build:
+    name: Package Windows Installer
+    needs: checks
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install shell dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Build Windows Installer (NSIS)
+        shell: powershell
+        run: .\scripts\build.ps1
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vocalis-Windows-Installer
+          path: |
+            app/release/Vocalis-Setup-*.exe
+            app/release/Vocalis-Setup-*.exe.blockmap
+            app/release/latest.yml
+            app/release/SHA256SUMS.txt
+          if-no-files-found: error

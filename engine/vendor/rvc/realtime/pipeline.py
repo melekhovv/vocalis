@@ -222,6 +222,7 @@ class Realtime_Pipeline:
     def setup_f0(self, f0_method: str = "fcpe"):
         if not self.use_f0:
             return None
+        f0_model = None
         if f0_method == "rmvpe":
 
             def _infer_from_audio(self, audio, thred=0.03):
@@ -287,7 +288,7 @@ class Realtime_Pipeline:
                 sample_rate=self.sample_rate,
                 hop_size=self.window,
             )
-        elif self.f0_method == "crepe":
+        elif f0_method == "crepe":
             f0_model = None
 
         return f0_model

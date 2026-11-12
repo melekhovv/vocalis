@@ -9,7 +9,12 @@ function on<T>(channel: string, cb: (data: T) => void) {
 const api = {
   engineInfo: () => ipcRenderer.invoke('engine:info'),
   setupEngine: () => ipcRenderer.invoke('engine:setup'),
+  cancelSetup: () => ipcRenderer.invoke('engine:cancelSetup'),
   restartEngine: () => ipcRenderer.invoke('engine:restart'),
+  depsInfo: () => ipcRenderer.invoke('deps:info'),
+  removeRuntimeDeps: () => ipcRenderer.invoke('deps:removeRuntime'),
+  uninstallApp: () => ipcRenderer.invoke('app:uninstall'),
+  saveDiagnostics: (content: string) => ipcRenderer.invoke('app:saveDiagnostics', content),
   onEngineState: (cb: (info: unknown) => void) => on('engine:state', cb),
   onEngineLog: (cb: (line: string) => void) => on('engine:log', cb),
   getSettings: () => ipcRenderer.invoke('settings:get'),

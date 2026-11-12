@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { VoiceAvatar } from '@/components/voice-avatar'
+import { usePreview } from '@/components/voice-preview'
 import { stageLabel } from '@/pages/library'
 import { useStore } from '@/lib/store'
 import { api, type SystemInfo, type SourceRegistry } from '@/lib/api'
@@ -20,17 +21,20 @@ import { CATEGORY_LABELS, type Category, type Voice } from '@/lib/types'
 
 export function ModelsPage() {
   const { voices, status } = useStore()
+  const pv = usePreview()
   const [sourcesOpen, setSourcesOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [sys, setSys] = useState<SystemInfo | null>(null)
   const [toDelete, setToDelete] = useState<Voice | null>(null)
+  const [deleteBaseOpen, setDeleteBaseOpen] = useState(false)
   const readyCount = voices.filter((v) => v.status === 'ready').length
-  useEffect(() => {
-    api.system().then(setSys).catch(() => {})
-  }, [readyCount])
-
   const base = status!.baseAssets
+  const basePresent = base.items.some((i) => i.present)
   const baseJob = base.job && !['done', 'error', 'cancelled'].includes(base.job.stage) ? base.job : null
+  const refreshSystem = () => api.system().then(setSys).catch(() => {})
+  useEffect(() => {
+    refreshSystem()
+  }, [readyCount, base.ready, basePresent])
 
   return (
     <div className="@container flex h-full min-w-0 flex-col">
@@ -59,13 +63,20 @@ export function ModelsPage() {
                 <div className="text-sm font-medium">Базовые нейросети</div>
                 <div className="text-xs text-muted-foreground">Извлечение признаков речи и высоты тона — общие для всех голосов.</div>
               </div>
-              {base.ready ? (
-                <Badge variant="outline" className="border-live/30 bg-live/10 text-live">Установлены</Badge>
-              ) : (
-                <Button size="sm" disabled={!!baseJob} onClick={() => api.downloadBase().catch((e) => toast.error('Не удалось начать загрузку', { description: e.message }))}>
-                  {baseJob ? <Loader2 className="animate-spin" /> : <Download />} Загрузить
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {base.ready ? (
+                  <Badge variant="outline" className="border-live/30 bg-live/10 text-live">Установлены</Badge>
+                ) : (
+                  <Button size="sm" disabled={!!baseJob} onClick={() => api.downloadBase().catch((e) => toast.error('Не удалось начать загрузку', { description: e.message }))}>
+                    {baseJob ? <Loader2 className="animate-spin" /> : <Download />} Загрузить
+                  </Button>
+                )}
+                {basePresent && !baseJob && (
+                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive" onClick={() => setDeleteBaseOpen(true)}>
+                    <Trash2 className="size-4" /> Удалить
+                  </Button>
+                )}
+              </div>
             </div>
             {baseJob && <Progress value={baseJob.progress * 100} className="h-0.5 rounded-none" />}
             <div className="divide-y">
@@ -112,12 +123,42 @@ export function ModelsPage() {
               className="bg-destructive text-white hover:bg-destructive/90"
               onClick={async () => {
                 try {
+                  if (pv.playing === toDelete!.id) pv.stop()
                   await api.remove(toDelete!.id)
                   toast.success('Модель удалена')
+                  refreshSystem()
                 } catch (e) {
                   toast.error('Не удалось удалить', { description: (e as Error).message })
                 }
                 setToDelete(null)
+              }}
+            >
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={deleteBaseOpen} onOpenChange={setDeleteBaseOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить базовые нейросети?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Файлы ContentVec, RMVPE и FCPE будут удалены с диска. Пока они не загружены заново, преобразование голоса и расчёт новых превью работать не будут. Ваши голосовые модели останутся на месте.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={async () => {
+                try {
+                  const res = await api.deleteBase()
+                  toast.success('Базовые нейросети удалены', { description: `Освобождено ${formatBytes(res.removedBytes)}` })
+                  refreshSystem()
+                } catch (e) {
+                  toast.error('Не удалось удалить нейросети', { description: (e as Error).message })
+                }
+                setDeleteBaseOpen(false)
               }}
             >
               Удалить

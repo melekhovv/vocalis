@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 
 import requests
 
-from .paths import CACHE_DIR, CATALOG_FILE, DATA_DIR, VOICES_DIR
+from .paths import CACHE_DIR, CATALOG_FILE, DATA_DIR, PREVIEW_DIR, VOICES_DIR
 
 from .downloads import ALLOWED_HOSTS, open_download
 CHUNK = 1 << 20
@@ -225,6 +225,50 @@ class ModelManager:
     def ensure_base_assets(self):
         return self._start_job("__base__", self._run_base)
 
+    def delete_base_assets(self):
+        self.cancel("__base__")
+        job = self.jobs.get("__base__")
+        if job and job.stage not in ("done", "error", "cancelled"):
+            raise ModelError("Дождитесь отмены текущей загрузки базовых нейросетей")
+        removed = 0
+        for a in self.catalog["baseAssets"]:
+            dest = DATA_DIR / a["path"]
+            for candidate in (dest, dest.with_name(dest.name + ".part")):
+                if candidate.is_file():
+                    removed += candidate.stat().st_size
+                    candidate.unlink(missing_ok=True)
+        rvc_models = DATA_DIR / "rvc"
+        if rvc_models.is_dir():
+            for d in sorted((p for p in rvc_models.rglob("*") if p.is_dir()), reverse=True):
+                try:
+                    d.rmdir()
+                except OSError:
+                    pass
+            try:
+                rvc_models.rmdir()
+            except OSError:
+                pass
+        self.jobs.pop("__base__", None)
+        self.on_change()
+        return {"removedBytes": removed}
+
+    def clear_cache(self):
+        active = any(j.stage not in ("done", "error", "cancelled") for j in self.jobs.values())
+        if active:
+            raise ModelError("Нельзя очистить кэш во время активной загрузки")
+        removed = 0
+        for folder in (CACHE_DIR, PREVIEW_DIR):
+            if folder.exists():
+                for p in list(folder.iterdir()):
+                    if p.is_file():
+                        removed += p.stat().st_size
+                        p.unlink(missing_ok=True)
+                    elif p.is_dir():
+                        removed += sum(f.stat().st_size for f in p.rglob("*") if f.is_file())
+                        shutil.rmtree(p, ignore_errors=True)
+        self.on_change()
+        return {"removedBytes": removed}
+
     def _run_base(self, job: Job):
         missing = [a for a in self.catalog["baseAssets"] if not (DATA_DIR / a["path"]).exists()]
         job.total = sum(a["size"] for a in missing)
@@ -389,6 +433,12 @@ class ModelManager:
         d = self._voice_dir(voice_id)
         if d.exists():
             shutil.rmtree(d)
+        if PREVIEW_DIR.exists():
+            (PREVIEW_DIR / f"demo-{voice_id}.wav").unlink(missing_ok=True)
+        if CACHE_DIR.exists():
+            for suffix in (f"{voice_id}.zip", f"{voice_id}-pth.zip", f"{voice_id}-index.zip"):
+                for p in (CACHE_DIR / suffix, CACHE_DIR / f"{suffix}.part"):
+                    p.unlink(missing_ok=True)
         self.jobs.pop(voice_id, None)
         self.on_change()
 
@@ -463,13 +513,20 @@ class ModelManager:
         return voice_id
 
     def storage_info(self):
-        total = 0
-        if VOICES_DIR.exists():
-            for p in VOICES_DIR.rglob("*"):
-                if p.is_file():
-                    total += p.stat().st_size
+        def dir_bytes(root: Path) -> int:
+            if not root.exists():
+                return 0
+            return sum(p.stat().st_size for p in root.rglob("*") if p.is_file())
+
+        total = dir_bytes(VOICES_DIR)
         base = sum((DATA_DIR / a["path"]).stat().st_size for a in self.catalog["baseAssets"] if (DATA_DIR / a["path"]).exists())
-        return {"dataDir": str(DATA_DIR), "voicesBytes": total, "baseBytes": base}
+        return {
+            "dataDir": str(DATA_DIR),
+            "voicesBytes": total,
+            "baseBytes": base,
+            "cacheBytes": dir_bytes(CACHE_DIR),
+            "previewsBytes": dir_bytes(PREVIEW_DIR),
+        }
 
 
 class _Cancelled(Exception):
